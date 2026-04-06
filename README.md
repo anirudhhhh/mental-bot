@@ -84,7 +84,3 @@ The system includes a safety layer that:
 - Detects self-harm and suicide-related content
 - Overrides normal responses with crisis-safe messaging
 - Provides emergency helpline resources
-
-## License
-
-MIT
