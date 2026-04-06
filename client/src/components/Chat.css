@@ -1,0 +1,293 @@
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #000000;
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.therapist-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.personality-icon {
+  font-size: 1.2rem;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  transition: all 400ms ease-out;
+}
+
+.personality-icon.compassionate {
+  animation: gentlePulse 3s ease-in-out infinite;
+}
+
+.personality-icon.motivational {
+  animation: expandUp 2s ease-in-out infinite;
+}
+
+.personality-icon.understanding {
+  opacity: 0.9;
+}
+
+.personality-icon.brutal_truth {
+  opacity: 0.8;
+}
+
+@keyframes gentlePulse {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.05); opacity: 1; }
+}
+
+@keyframes expandUp {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-2px) scale(1.03); }
+}
+
+.therapist-info h2 {
+  color: #FFFFFF;
+  font-size: 0.85rem;
+  font-weight: 400;
+  margin: 0;
+}
+
+.therapist-info .status {
+  color: #666;
+  font-size: 0.7rem;
+  font-weight: 300;
+}
+
+.header-actions {
+  display: flex;
+  gap: 20px;
+}
+
+.forum-btn,
+.logout-btn {
+  background: transparent;
+  border: none;
+  color: #666;
+  padding: 4px 0;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 400;
+  transition: color 200ms ease-out;
+}
+
+.forum-btn:hover,
+.logout-btn:hover {
+  color: #FFFFFF;
+}
+
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.welcome-message {
+  text-align: center;
+  padding: 32px 20px;
+}
+
+.welcome-message h3 {
+  color: #FFFFFF;
+  font-size: 1rem;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+
+.welcome-message p {
+  color: #666;
+  font-size: 0.85rem;
+  font-weight: 300;
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  animation: messageIn 250ms ease-out;
+}
+
+@keyframes messageIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message.user {
+  align-items: flex-end;
+}
+
+.message.assistant {
+  align-items: flex-start;
+}
+
+.message-content {
+  background: transparent;
+  padding: 0;
+  color: #FFFFFF;
+  line-height: 1.6;
+  max-width: 85%;
+}
+
+.message.user .message-content {
+  color: #EAEAEA;
+  text-align: right;
+  background: #1a1a1a;
+  padding: 10px 14px;
+  border-radius: 16px;
+}
+
+.message.assistant .message-content {
+  font-size: 1.02rem;
+}
+
+.message-content p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.typing {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 18px;
+  padding: 4px 0;
+}
+
+.typing span {
+  width: 3px;
+  background: #FFFFFF;
+  border-radius: 1px;
+  animation: musicBar 2.5s ease-in-out infinite;
+  transform-origin: bottom;
+}
+
+.typing span:nth-child(1) { 
+  animation-delay: 0s;
+}
+.typing span:nth-child(2) { 
+  animation-delay: 0.1s;
+}
+.typing span:nth-child(3) { 
+  animation-delay: 0.2s;
+}
+.typing span:nth-child(4) { 
+  animation-delay: 0.3s;
+}
+.typing span:nth-child(5) { 
+  animation-delay: 0.4s;
+}
+
+@keyframes musicBar {
+  0% { 
+    height: 4px;
+    opacity: 0.5;
+  }
+  25% {
+    height: 12px;
+    opacity: 0.8;
+  }
+  50% { 
+    height: 16px;
+    opacity: 1;
+  }
+  75% {
+    height: 10px;
+    opacity: 0.8;
+  }
+  100% { 
+    height: 4px;
+    opacity: 0.5;
+  }
+}
+
+.input-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 20px 32px;
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.message-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #333;
+  padding: 10px 0;
+  color: #FFFFFF;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: border-color 200ms ease-out;
+}
+
+.message-input:focus {
+  outline: none;
+  border-color: #FFFFFF;
+}
+
+.message-input::placeholder {
+  color: #555;
+}
+
+.send-btn {
+  background: transparent;
+  color: #666;
+  border: none;
+  padding: 6px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 200ms ease-out;
+}
+
+.send-btn:hover:not(:disabled) {
+  color: #FFFFFF;
+  transform: scale(1.03);
+}
+
+.send-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .messages-container {
+    padding: 20px 16px;
+    gap: 16px;
+  }
+
+  .chat-header {
+    padding: 14px 16px;
+  }
+
+  .input-container {
+    padding: 14px 16px;
+  }
+}
