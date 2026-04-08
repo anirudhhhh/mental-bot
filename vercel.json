@@ -35,7 +35,7 @@
       "dest": "client/build/manifest.json"
     },
     {
-      "src": "/(auth|chat|forum)",
+      "src": "/(auth|login|signup|chat|forum)",
       "dest": "client/build/index.html"
     },
     {
