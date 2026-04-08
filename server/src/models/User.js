@@ -20,6 +20,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "Anonymous",
     },
+    whatBringsYou: {
+      type: String,
+      trim: true,
+    },
     preferences: {
       preferredPersonality: {
         type: String,

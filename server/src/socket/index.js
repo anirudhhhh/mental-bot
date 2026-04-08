@@ -4,7 +4,13 @@ const User = require("../models/User");
 const { detectEmotion, selectPersonality } = require("../services/emotion");
 const { checkSafety } = require("../services/safety");
 const { generateWithFallback } = require("../services/therapist");
-const { addMessage, getMemoryContext } = require("../services/memory");
+const {
+  addMessage,
+  getMemoryContext,
+  getUserSessions,
+  getSessionMessages,
+  deleteSession,
+} = require("../services/memory");
 const { getPersonality } = require("../services/personality");
 
 function setupSocket(io) {
@@ -29,24 +35,67 @@ function setupSocket(io) {
 
     socket.join(`user:${socket.user._id}`);
 
+    // Get user's sessions
+    socket.on("get_sessions", async () => {
+      try {
+        const sessions = await getUserSessions(socket.user._id);
+        socket.emit("sessions_list", { sessions });
+      } catch (err) {
+        console.error("Get sessions error:", err);
+      }
+    });
+
+    // Load session messages
+    socket.on("load_session", async (data) => {
+      try {
+        const { sessionId } = data;
+        const messages = await getSessionMessages(socket.user._id, sessionId);
+        socket.emit("session_loaded", {
+          sessionId,
+          messages: messages.map((m) => ({
+            role: m.role,
+            content: m.content,
+            personality: m.personality ? { type: m.personality } : null,
+            timestamp: m.timestamp,
+          })),
+        });
+      } catch (err) {
+        console.error("Load session error:", err);
+      }
+    });
+
+    // Delete session
+    socket.on("delete_session", async (data) => {
+      try {
+        const { sessionId } = data;
+        await deleteSession(socket.user._id, sessionId);
+        const sessions = await getUserSessions(socket.user._id);
+        socket.emit("session_deleted", { sessionId });
+        socket.emit("sessions_list", { sessions });
+      } catch (err) {
+        console.error("Delete session error:", err);
+      }
+    });
+
     socket.on("send_message", async (data) => {
       try {
-        const { message } = data;
+        const { message, sessionId } = data;
         const userId = socket.user._id;
 
-        if (!message?.trim()) return;
+        if (!message?.trim() || !sessionId) return;
 
         socket.emit("typing", { isTyping: true });
 
         const safety = checkSafety(message);
 
         if (safety.isCrisis) {
-          await addMessage(userId, "user", message, {
+          await addMessage(userId, sessionId, "user", message, {
             emotion: "hopeless",
             intensity: 1,
           });
           await addMessage(
             userId,
+            sessionId,
             "assistant",
             safety.response,
             null,
@@ -73,8 +122,15 @@ function setupSocket(io) {
         );
         const personality = getPersonality(personalityType);
 
-        const memory = await getMemoryContext(userId);
-        await addMessage(userId, "user", message, emotion.emotion, null);
+        const memory = await getMemoryContext(userId, sessionId);
+        await addMessage(
+          userId,
+          sessionId,
+          "user",
+          message,
+          emotion.emotion,
+          null,
+        );
 
         let reply;
         if (safety.riskLevel === "moderate") {
@@ -88,7 +144,17 @@ function setupSocket(io) {
           );
         }
 
-        await addMessage(userId, "assistant", reply, null, personalityType);
+        await addMessage(
+          userId,
+          sessionId,
+          "assistant",
+          reply,
+          null,
+          personalityType,
+        );
+
+        // Get updated sessions to refresh sidebar
+        const sessions = await getUserSessions(userId);
 
         socket.emit("typing", { isTyping: false });
         socket.emit("receive_message", {
@@ -98,10 +164,10 @@ function setupSocket(io) {
             type: personalityType,
             name: personality.name,
             color: personality.color,
-            icon: personality.icon,
           },
           isCrisis: false,
         });
+        socket.emit("sessions_list", { sessions });
       } catch (err) {
         console.error("Socket message error:", err);
         socket.emit("typing", { isTyping: false });

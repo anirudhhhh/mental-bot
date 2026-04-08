@@ -3,7 +3,7 @@ const { signToken } = require("../middleware/auth");
 
 async function register(req, res) {
   try {
-    const { email, password, displayName } = req.body;
+    const { email, password, displayName, whatBringsYou } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: "Email and password required" });
@@ -18,6 +18,7 @@ async function register(req, res) {
       email,
       password,
       displayName: displayName || "Anonymous",
+      whatBringsYou: whatBringsYou || "",
     });
 
     const token = signToken(user._id);
@@ -28,6 +29,7 @@ async function register(req, res) {
         id: user._id,
         email: user.email,
         displayName: user.displayName,
+        whatBringsYou: user.whatBringsYou,
       },
     });
   } catch (err) {
@@ -61,6 +63,7 @@ async function login(req, res) {
         email: user.email,
         displayName: user.displayName,
         preferences: user.preferences,
+        whatBringsYou: user.whatBringsYou,
       },
     });
   } catch (err) {
@@ -75,6 +78,7 @@ async function getProfile(req, res) {
       email: req.user.email,
       displayName: req.user.displayName,
       preferences: req.user.preferences,
+      whatBringsYou: req.user.whatBringsYou,
     },
   });
 }

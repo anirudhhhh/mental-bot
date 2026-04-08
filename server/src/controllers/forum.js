@@ -47,29 +47,35 @@ async function getSubspaces(req, res) {
 async function getUserSubspaces(req, res) {
   try {
     const userId = req.user._id;
-    
+
     // Get subspaces user created (if createdBy exists)
-    const created = await Subspace.find({ 
+    const created = await Subspace.find({
       createdBy: { $exists: true },
-      createdBy: userId 
+      createdBy: userId,
     });
-    
+
     // Get subspaces user posted in
-    const userPosts = await Post.find({ author: userId }).distinct('subspace');
-    const postedIn = await Subspace.find({ 
-      _id: { $in: userPosts }
+    const userPosts = await Post.find({ author: userId }).distinct("subspace");
+    const postedIn = await Subspace.find({
+      _id: { $in: userPosts },
     });
-    
-    // Combine and deduplicate
+
+    // Combine and deduplicate, adding isOwner flag
     const subspaceMap = new Map();
-    [...created, ...postedIn].forEach(s => {
-      subspaceMap.set(s._id.toString(), s);
+    [...created, ...postedIn].forEach((s) => {
+      const existing = subspaceMap.get(s._id.toString());
+      if (!existing) {
+        subspaceMap.set(s._id.toString(), {
+          ...s.toObject(),
+          isOwner: s.createdBy?.toString() === userId.toString(),
+        });
+      }
     });
-    
+
     const subspaces = Array.from(subspaceMap.values());
     res.json(subspaces);
   } catch (err) {
-    console.error('getUserSubspaces error:', err);
+    console.error("getUserSubspaces error:", err);
     res.status(500).json({ error: "Failed to get user subspaces" });
   }
 }
@@ -80,12 +86,12 @@ async function searchSubspaces(req, res) {
     if (!q || q.length < 2) {
       return res.json([]);
     }
-    
+
     const subspaces = await Subspace.find({
-      name: { $regex: q, $options: 'i' },
-      isPrivate: false
+      name: { $regex: q, $options: "i" },
+      isPrivate: false,
     }).limit(10);
-    
+
     res.json(subspaces);
   } catch (err) {
     res.status(500).json({ error: "Failed to search subspaces" });
@@ -98,27 +104,29 @@ async function deleteSubspace(req, res) {
     if (!subspace) {
       return res.status(404).json({ error: "Subspace not found" });
     }
-    
+
     // Check if user is creator (if createdBy exists)
     if (subspace.createdBy && !subspace.createdBy.equals(req.user._id)) {
-      return res.status(403).json({ error: "Only the creator can delete this subspace" });
+      return res
+        .status(403)
+        .json({ error: "Only the creator can delete this subspace" });
     }
-    
+
     // If no createdBy, allow deletion (legacy data)
     if (!subspace.createdBy) {
       return res.status(403).json({ error: "Cannot delete legacy subspaces" });
     }
-    
+
     // Delete all posts and comments in this subspace
     const posts = await Post.find({ subspace: subspace._id });
-    const postIds = posts.map(p => p._id);
+    const postIds = posts.map((p) => p._id);
     await Comment.deleteMany({ post: { $in: postIds } });
     await Post.deleteMany({ subspace: subspace._id });
     await Subspace.deleteOne({ _id: subspace._id });
-    
+
     res.json({ deleted: true });
   } catch (err) {
-    console.error('deleteSubspace error:', err);
+    console.error("deleteSubspace error:", err);
     res.status(500).json({ error: "Failed to delete subspace" });
   }
 }
@@ -200,6 +208,7 @@ async function getPosts(req, res) {
     const sanitized = posts.map((p) => ({
       ...p.toObject(),
       author: p.isAnonymous ? { displayName: "Anonymous" } : p.author,
+      hasUpvoted: req.user ? p.upvotes.includes(req.user._id) : false,
     }));
 
     res.json(sanitized);
@@ -221,6 +230,7 @@ async function getPost(req, res) {
     const sanitized = {
       ...post.toObject(),
       author: post.isAnonymous ? { displayName: "Anonymous" } : post.author,
+      hasUpvoted: req.user ? post.upvotes.includes(req.user._id) : false,
     };
 
     res.json(sanitized);
@@ -259,14 +269,16 @@ async function deletePost(req, res) {
     if (!post) {
       return res.status(404).json({ error: "Post not found" });
     }
-    
+
     if (!post.author.equals(req.user._id)) {
-      return res.status(403).json({ error: "Only the author can delete this post" });
+      return res
+        .status(403)
+        .json({ error: "Only the author can delete this post" });
     }
-    
+
     await Comment.deleteMany({ post: post._id });
     await Post.deleteOne({ _id: post._id });
-    
+
     res.json({ deleted: true });
   } catch (err) {
     res.status(500).json({ error: "Failed to delete post" });
@@ -334,6 +346,7 @@ async function getFeed(req, res) {
     const sanitized = posts.map((p) => ({
       ...p.toObject(),
       author: p.isAnonymous ? { displayName: "Anonymous" } : p.author,
+      hasUpvoted: req.user ? p.upvotes.includes(req.user._id) : false,
     }));
 
     res.json(sanitized);

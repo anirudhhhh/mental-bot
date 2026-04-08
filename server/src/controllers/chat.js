@@ -76,7 +76,6 @@ async function sendMessage(req, res) {
         type: personalityType,
         name: personality.name,
         color: personality.color,
-        icon: personality.icon,
       },
       isCrisis: false,
     });

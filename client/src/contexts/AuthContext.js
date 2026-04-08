@@ -3,7 +3,7 @@ import axios from "axios";
 
 const AuthContext = createContext(null);
 
-const API_URL = "http://localhost:5001/api";
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5001/api";
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -38,11 +38,12 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
-  const register = async (email, password, displayName) => {
+  const register = async (email, password, displayName, whatBringsYou) => {
     const res = await axios.post(`${API_URL}/auth/register`, {
       email,
       password,
       displayName,
+      whatBringsYou,
     });
     localStorage.setItem("token", res.data.token);
     setToken(res.data.token);

@@ -1,10 +1,16 @@
 const Chat = require("../models/Chat");
 
-async function getOrCreateChat(userId) {
-  let chat = await Chat.findOne({ userId }).sort({ lastActivity: -1 });
+async function getOrCreateChat(userId, sessionId) {
+  let chat = await Chat.findOne({ userId, sessionId });
 
   if (!chat) {
-    chat = await Chat.create({ userId, messages: [], emotionHistory: [] });
+    chat = await Chat.create({
+      userId,
+      sessionId,
+      sessionName: "new session",
+      messages: [],
+      emotionHistory: [],
+    });
   }
 
   return chat;
@@ -12,19 +18,20 @@ async function getOrCreateChat(userId) {
 
 async function addMessage(
   userId,
+  sessionId,
   role,
   content,
   emotion = null,
   personality = null,
 ) {
-  const chat = await getOrCreateChat(userId);
+  const chat = await getOrCreateChat(userId, sessionId);
 
   let emotionString = null;
   let emotionData = null;
-  
-  if (typeof emotion === 'string') {
+
+  if (typeof emotion === "string") {
     emotionString = emotion;
-  } else if (emotion && typeof emotion === 'object') {
+  } else if (emotion && typeof emotion === "object") {
     emotionString = emotion.emotion || null;
     emotionData = emotion;
   }
@@ -46,18 +53,29 @@ async function addMessage(
   }
 
   chat.lastActivity = new Date();
+
+  // Auto-name session based on first user message
+  if (
+    chat.sessionName === "new session" &&
+    role === "user" &&
+    chat.messages.length === 1
+  ) {
+    chat.sessionName =
+      content.slice(0, 30) + (content.length > 30 ? "..." : "");
+  }
+
   await chat.save();
 
   return chat;
 }
 
-async function getRecentMessages(userId, limit = 10) {
-  const chat = await getOrCreateChat(userId);
+async function getRecentMessages(userId, sessionId, limit = 10) {
+  const chat = await getOrCreateChat(userId, sessionId);
   return chat.messages.slice(-limit);
 }
 
-async function getMemoryContext(userId) {
-  const chat = await getOrCreateChat(userId);
+async function getMemoryContext(userId, sessionId) {
+  const chat = await getOrCreateChat(userId, sessionId);
 
   const recentEmotions = chat.emotionHistory.slice(-5).map((e) => e.emotion);
 
@@ -73,8 +91,8 @@ async function getMemoryContext(userId) {
   };
 }
 
-async function getEmotionTrends(userId) {
-  const chat = await getOrCreateChat(userId);
+async function getEmotionTrends(userId, sessionId) {
+  const chat = await getOrCreateChat(userId, sessionId);
 
   const emotionCounts = {};
   chat.emotionHistory.forEach((e) => {
@@ -88,6 +106,31 @@ async function getEmotionTrends(userId) {
   };
 }
 
+async function getUserSessions(userId) {
+  const sessions = await Chat.find({ userId })
+    .sort({ lastActivity: -1 })
+    .select("sessionId sessionName lastActivity messages")
+    .lean();
+
+  return sessions.map((s) => ({
+    id: s.sessionId,
+    name: s.sessionName,
+    time: s.lastActivity,
+    messageCount: s.messages?.length || 0,
+  }));
+}
+
+async function getSessionMessages(userId, sessionId) {
+  const chat = await Chat.findOne({ userId, sessionId });
+  if (!chat) return [];
+  return chat.messages;
+}
+
+async function deleteSession(userId, sessionId) {
+  await Chat.deleteOne({ userId, sessionId });
+  return { success: true };
+}
+
 async function clearHistory(userId) {
   await Chat.deleteMany({ userId });
   return { success: true };
@@ -99,5 +142,8 @@ module.exports = {
   getRecentMessages,
   getMemoryContext,
   getEmotionTrends,
+  getUserSessions,
+  getSessionMessages,
+  deleteSession,
   clearHistory,
 };

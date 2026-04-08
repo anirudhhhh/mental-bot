@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io } from "socket.io-client";
 
-const SOCKET_URL = "http://localhost:5001";
+const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || "http://localhost:5001";
 
 export function useSocket(token) {
   const socketRef = useRef(null);
@@ -14,7 +14,7 @@ export function useSocket(token) {
     }
 
     console.log("Connecting to socket with token...");
-    
+
     const socket = io(SOCKET_URL, {
       auth: { token },
       transports: ["polling", "websocket"],
@@ -50,33 +50,106 @@ export function useSocket(token) {
     };
   }, [token]);
 
-  const sendMessage = useCallback((message) => {
+  const sendMessage = useCallback((message, sessionId) => {
     const socket = socketRef.current;
     if (socket?.connected) {
-      console.log("Sending message:", message);
-      socket.emit("send_message", { message });
+      socket.emit("send_message", { message, sessionId });
     } else {
       console.error("Socket not connected, cannot send");
     }
   }, []);
 
-  const onMessage = useCallback((callback) => {
+  const getSessions = useCallback(() => {
     const socket = socketRef.current;
-    if (socket) {
-      socket.on("receive_message", callback);
-      return () => socket.off("receive_message", callback);
+    if (socket?.connected) {
+      socket.emit("get_sessions");
     }
-    return () => {};
-  }, [isConnected]);
+  }, []);
 
-  const onTyping = useCallback((callback) => {
+  const loadSession = useCallback((sessionId) => {
     const socket = socketRef.current;
-    if (socket) {
-      socket.on("typing", callback);
-      return () => socket.off("typing", callback);
+    if (socket?.connected) {
+      socket.emit("load_session", { sessionId });
     }
-    return () => {};
-  }, [isConnected]);
+  }, []);
 
-  return { sendMessage, onMessage, onTyping, isConnected };
+  const onMessage = useCallback(
+    (callback) => {
+      const socket = socketRef.current;
+      if (socket) {
+        socket.on("receive_message", callback);
+        return () => socket.off("receive_message", callback);
+      }
+      return () => {};
+    },
+    [isConnected],
+  );
+
+  const onTyping = useCallback(
+    (callback) => {
+      const socket = socketRef.current;
+      if (socket) {
+        socket.on("typing", callback);
+        return () => socket.off("typing", callback);
+      }
+      return () => {};
+    },
+    [isConnected],
+  );
+
+  const onSessionsList = useCallback(
+    (callback) => {
+      const socket = socketRef.current;
+      if (socket) {
+        socket.on("sessions_list", callback);
+        return () => socket.off("sessions_list", callback);
+      }
+      return () => {};
+    },
+    [isConnected],
+  );
+
+  const onSessionLoaded = useCallback(
+    (callback) => {
+      const socket = socketRef.current;
+      if (socket) {
+        socket.on("session_loaded", callback);
+        return () => socket.off("session_loaded", callback);
+      }
+      return () => {};
+    },
+    [isConnected],
+  );
+
+  const deleteSessionById = useCallback((sessionId) => {
+    const socket = socketRef.current;
+    if (socket?.connected) {
+      socket.emit("delete_session", { sessionId });
+    }
+  }, []);
+
+  const onSessionDeleted = useCallback(
+    (callback) => {
+      const socket = socketRef.current;
+      if (socket) {
+        socket.on("session_deleted", callback);
+        return () => socket.off("session_deleted", callback);
+      }
+      return () => {};
+    },
+    [isConnected],
+  );
+
+  return {
+    sendMessage,
+    getSessions,
+    loadSession,
+    deleteSessionById,
+    onMessage,
+    onTyping,
+    onSessionsList,
+    onSessionLoaded,
+    onSessionDeleted,
+    isConnected,
+  };
 }

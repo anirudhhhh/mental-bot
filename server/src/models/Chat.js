@@ -43,6 +43,15 @@ const chatSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    sessionId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    sessionName: {
+      type: String,
+      default: "new session",
+    },
     messages: [messageSchema],
     emotionHistory: [
       {
@@ -63,6 +72,7 @@ const chatSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+chatSchema.index({ userId: 1, sessionId: 1 }, { unique: true });
 chatSchema.index({ userId: 1, lastActivity: -1 });
 
 module.exports = mongoose.model("Chat", chatSchema);

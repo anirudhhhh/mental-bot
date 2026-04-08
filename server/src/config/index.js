@@ -1,4 +1,6 @@
-require("dotenv").config({ path: require("path").resolve(__dirname, "../../../.env") });
+require("dotenv").config({
+  path: require("path").resolve(__dirname, "../../../.env"),
+});
 const mongoose = require("mongoose");
 const Redis = require("ioredis");
 
@@ -9,7 +11,7 @@ const config = {
   redisUrl: process.env.REDIS_URL || "redis://localhost:6379",
   jwtSecret: process.env.JWT_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
-  geminiApiKey: process.env.GEMINI_API_KEY,
+  openRouterApiKey: process.env.OPENROUTER_API_KEY,
   clientUrl: process.env.CLIENT_URL || "http://localhost:3000",
 };
 
@@ -34,7 +36,7 @@ try {
     maxRetriesPerRequest: 1,
     retryStrategy: () => null,
     lazyConnect: true,
-    enableOfflineQueue: false
+    enableOfflineQueue: false,
   });
 
   redis.on("connect", () => console.log("Redis connected"));

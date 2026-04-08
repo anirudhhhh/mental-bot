@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import axios from "axios";
 import "./Forum.css";
 
-const API_URL = "http://localhost:5001/api";
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5001/api";
 
-export default function Forum({ onOpenChat }) {
+export default function Forum() {
+  const navigate = useNavigate();
   const [view, setView] = useState("feed");
   const [subspaces, setSubspaces] = useState([]);
   const [posts, setPosts] = useState([]);
@@ -16,13 +18,16 @@ export default function Forum({ onOpenChat }) {
   const [showCreateSubspace, setShowCreateSubspace] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(null);
+  const [sortBy, setSortBy] = useState("hot");
   const { token, logout, user } = useAuth();
 
   const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
 
   useEffect(() => {
     fetchUserSubspaces();
-    fetchFeed();
+    fetchFeed("hot");
   }, []);
 
   useEffect(() => {
@@ -33,155 +38,165 @@ export default function Forum({ onOpenChat }) {
     }
   }, [searchQuery]);
 
+  useEffect(() => {
+    if (view === "feed") fetchFeed(sortBy);
+    if (view === "subspace" && currentSubspace)
+      fetchSubspacePosts(currentSubspace, sortBy);
+  }, [sortBy]);
+
+  // All the existing functions (fetchUserSubspaces, fetchFeed, etc.) remain the same...
   const fetchUserSubspaces = async () => {
     try {
-      const res = await axios.get(`${API_URL}/forum/subspaces/mine`, authHeaders);
+      const res = await axios.get(
+        `${API_URL}/forum/subspaces/mine`,
+        authHeaders,
+      );
       setSubspaces(res.data);
     } catch (err) {
-      console.error('Failed to fetch user subspaces:', err);
+      console.error("Failed to fetch user subspaces:", err);
       setSubspaces([]);
     }
   };
 
-  const searchSubspaces = async (q) => {
+  const fetchFeed = async (sort = sortBy) => {
     try {
-      const res = await axios.get(`${API_URL}/forum/subspaces/search?q=${q}`);
-      setSearchResults(res.data);
-    } catch (err) {}
+      setView("feed");
+      setCurrentSubspace(null);
+      const res = await axios.get(
+        `${API_URL}/forum/feed?sort=${sort}`,
+        authHeaders,
+      );
+      setPosts(res.data);
+    } catch (err) {
+      console.error("Failed to fetch feed:", err);
+    }
   };
 
-  const fetchFeed = async () => {
+  const fetchSubspacePosts = async (name, sort = sortBy) => {
     try {
-      const res = await axios.get(`${API_URL}/forum/feed`);
-      setPosts(res.data);
-    } catch (err) {}
-  };
-
-  const fetchSubspacePosts = async (name) => {
-    try {
-      const res = await axios.get(`${API_URL}/forum/s/${name}/posts`);
-      setPosts(res.data);
-      setCurrentSubspace(name);
       setView("subspace");
-      setSearchQuery("");
-      setSearchResults([]);
-    } catch (err) {}
+      setCurrentSubspace(name);
+      const res = await axios.get(
+        `${API_URL}/forum/s/${name}/posts?sort=${sort}`,
+        authHeaders,
+      );
+      setPosts(res.data);
+    } catch (err) {
+      console.error("Failed to fetch posts:", err);
+    }
   };
 
-  const fetchPost = async (postId) => {
+  const fetchPost = async (id) => {
     try {
-      const [postRes, commentsRes] = await Promise.all([
-        axios.get(`${API_URL}/forum/post/${postId}`),
-        axios.get(`${API_URL}/forum/post/${postId}/comments`),
-      ]);
-      setCurrentPost(postRes.data);
-      setComments(commentsRes.data);
       setView("post");
-    } catch (err) {}
+      const res = await axios.get(`${API_URL}/forum/post/${id}`, authHeaders);
+      setCurrentPost(res.data);
+      const commentsRes = await axios.get(
+        `${API_URL}/forum/post/${id}/comments`,
+        authHeaders,
+      );
+      setComments(commentsRes.data);
+    } catch (err) {
+      console.error("Failed to fetch post:", err);
+    }
+  };
+
+  const searchSubspaces = async (query) => {
+    try {
+      const res = await axios.get(
+        `${API_URL}/forum/subspaces/search?q=${query}`,
+        authHeaders,
+      );
+      setSearchResults(res.data);
+    } catch (err) {
+      setSearchResults([]);
+    }
   };
 
   const handleUpvote = async (postId) => {
     try {
-      const res = await axios.post(
+      await axios.post(
         `${API_URL}/forum/post/${postId}/upvote`,
         {},
         authHeaders,
       );
-      setPosts(
-        posts.map((p) =>
-          p._id === postId ? { ...p, upvoteCount: res.data.upvoteCount } : p,
-        ),
-      );
-      if (currentPost?._id === postId) {
-        setCurrentPost({ ...currentPost, upvoteCount: res.data.upvoteCount });
-      }
+      if (view === "feed") fetchFeed();
+      else if (view === "subspace") fetchSubspacePosts(currentSubspace);
+      else if (view === "post") fetchPost(currentPost._id);
     } catch (err) {}
   };
 
   const handleDeletePost = async (postId) => {
-    if (!window.confirm("Delete this post?")) return;
     try {
       await axios.delete(`${API_URL}/forum/post/${postId}`, authHeaders);
-      if (view === "post") {
-        setView("subspace");
-        fetchSubspacePosts(currentPost.subspace?.name);
-      } else {
-        setPosts(posts.filter(p => p._id !== postId));
-      }
-    } catch (err) {
-      alert(err.response?.data?.error || "Failed to delete");
-    }
+      if (view === "feed") fetchFeed();
+      else if (view === "subspace") fetchSubspacePosts(currentSubspace);
+    } catch (err) {}
   };
 
   const handleDeleteSubspace = async (name) => {
-    if (!window.confirm(`Delete subspace "${name}" and all its posts?`)) return;
     try {
       await axios.delete(`${API_URL}/forum/s/${name}`, authHeaders);
       fetchUserSubspaces();
-      setView("feed");
-      fetchFeed();
-    } catch (err) {
-      alert(err.response?.data?.error || "Failed to delete");
-    }
+      if (view === "subspace" && currentSubspace === name) {
+        setView("feed");
+        fetchFeed();
+      }
+    } catch (err) {}
   };
 
-  const handleCreateSubspace = async (e) => {
+  const createSubspace = async (e) => {
     e.preventDefault();
-    const form = e.target;
+    const formData = new FormData(e.target);
     try {
       await axios.post(
         `${API_URL}/forum/subspaces`,
         {
-          name: form.name.value,
-          description: form.description.value,
-          icon: form.icon.value || "○",
+          name: formData.get("name"),
+          description: formData.get("description"),
+          isAnonymous: formData.get("anonymous") === "on",
         },
         authHeaders,
       );
-      fetchUserSubspaces();
       setShowCreateSubspace(false);
-    } catch (err) {
-      alert(err.response?.data?.error || "Failed to create");
-    }
+      fetchUserSubspaces();
+    } catch (err) {}
   };
 
-  const handleCreatePost = async (e) => {
+  const createPost = async (e) => {
     e.preventDefault();
-    const form = e.target;
+    const formData = new FormData(e.target);
+    const subspaceName = currentSubspace || formData.get("subspace");
     try {
       await axios.post(
-        `${API_URL}/forum/s/${currentSubspace}/posts`,
+        `${API_URL}/forum/s/${subspaceName}/posts`,
         {
-          title: form.title.value,
-          content: form.content.value,
-          isAnonymous: form.anonymous.checked,
+          title: formData.get("title"),
+          content: formData.get("content"),
+          isAnonymous: formData.get("anonymous") === "on",
         },
         authHeaders,
       );
-      fetchSubspacePosts(currentSubspace);
       setShowCreatePost(false);
-    } catch (err) {
-      alert(err.response?.data?.error || "Failed to create");
-    }
+      if (view === "feed") fetchFeed();
+      else if (view === "subspace") fetchSubspacePosts(currentSubspace);
+    } catch (err) {}
   };
 
-  const handleCreateComment = async (e) => {
+  const createComment = async (e) => {
     e.preventDefault();
-    const form = e.target;
+    const formData = new FormData(e.target);
     try {
       await axios.post(
         `${API_URL}/forum/post/${currentPost._id}/comments`,
         {
-          content: form.content.value,
-          isAnonymous: form.anonymous.checked,
+          content: formData.get("content"),
+          isAnonymous: formData.get("anonymous") === "on",
         },
         authHeaders,
       );
-      const res = await axios.get(
-        `${API_URL}/forum/post/${currentPost._id}/comments`,
-      );
-      setComments(res.data);
-      form.reset();
+      e.target.reset();
+      fetchPost(currentPost._id);
     } catch (err) {}
   };
 
@@ -192,43 +207,51 @@ export default function Forum({ onOpenChat }) {
     return `${Math.floor(mins / 1440)}d ago`;
   };
 
-  const isPostOwner = (post) => post.authorId === user?.id || post.author?._id === user?.id;
+  const isPostOwner = (post) =>
+    post.authorId === user?.id || post.author?._id === user?.id;
+
+  const handleContextMenu = (e, subspaceName, isOwner) => {
+    if (!isOwner) return;
+    e.preventDefault();
+    setMenuOpen(menuOpen === subspaceName ? null : subspaceName);
+  };
 
   return (
-    <div className="forum-container">
-      <header className="forum-header">
-        <div className="forum-nav">
-          <h1
+    <div className="forum-container" onClick={() => setMenuOpen(null)}>
+      <div
+        className={`mobile-overlay ${sidebarOpen ? "open" : ""}`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
+      {/* Sidebar */}
+      <aside className={`forum-sidebar ${sidebarOpen ? "open" : ""}`}>
+        <div className="forum-sidebar-top">
+          <div
+            className="forum-logo"
             onClick={() => {
               setView("feed");
               fetchFeed();
+              setSidebarOpen(false);
             }}
           >
-            SafeSpace
-          </h1>
-          <div className="nav-buttons">
-            <button onClick={onOpenChat} className="nav-btn">
-              Chat
-            </button>
-            <button
-              onClick={() => setShowCreateSubspace(true)}
-              className="nav-btn"
-            >
-              + Space
-            </button>
-            <button onClick={logout} className="nav-btn logout">
-              Sign Out
-            </button>
+            <div className="logo-dot" />
+            <span>SafeSpace</span>
           </div>
-        </div>
-      </header>
 
-      <div className="forum-layout">
-        <aside className="sidebar">
           <div className="search-box">
+            <svg
+              className="search-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
             <input
               type="text"
-              placeholder="Search spaces..."
+              placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -237,232 +260,634 @@ export default function Forum({ onOpenChat }) {
                 {searchResults.map((s) => (
                   <div
                     key={s._id}
-                    className="subspace-item"
-                    onClick={() => fetchSubspacePosts(s.name)}
+                    className="search-result-item"
+                    onClick={() => {
+                      fetchSubspacePosts(s.name);
+                      setSidebarOpen(false);
+                      setSearchQuery("");
+                    }}
                   >
-                    <span className="subspace-icon">{s.icon}</span>
-                    <span>{s.name}</span>
+                    <span className="result-prefix">#</span>
+                    <span className="result-name">{s.name}</span>
+                    <span className="result-count">{s.memberCount}</span>
                   </div>
                 ))}
               </div>
             )}
           </div>
-          <h3>Your Spaces</h3>
+        </div>
+
+        <div className="sidebar-section">
+          <div className="sidebar-section-label">Your Subspaces</div>
           {subspaces.map((s) => (
             <div
               key={s._id}
-              className="subspace-item"
-              onClick={() => fetchSubspacePosts(s.name)}
+              className={`subspace-item ${currentSubspace === s.name ? "active" : ""}`}
+              onClick={() => {
+                fetchSubspacePosts(s.name);
+                setSidebarOpen(false);
+              }}
+              onContextMenu={(e) => handleContextMenu(e, s.name, true)}
             >
-              <span className="subspace-icon">{s.icon}</span>
-              <span>{s.name}</span>
-              <span className="member-count">{s.memberCount}</span>
+              <span className="subspace-prefix">#</span>
+              <span className="subspace-name">{s.name}</span>
+              <div className="subspace-count-menu">
+                <span className="member-count">{s.memberCount}</span>
+                <button
+                  className="subspace-menu-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMenuOpen(menuOpen === s.name ? null : s.name);
+                  }}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <circle cx="12" cy="12" r="1" />
+                    <circle cx="12" cy="5" r="1" />
+                    <circle cx="12" cy="19" r="1" />
+                  </svg>
+                </button>
+              </div>
+              {menuOpen === s.name && (
+                <div
+                  className="subspace-menu"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    className="delete-option"
+                    onClick={() => {
+                      handleDeleteSubspace(s.name);
+                      setMenuOpen(null);
+                    }}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                    Delete space
+                  </button>
+                </div>
+              )}
             </div>
           ))}
-        </aside>
 
-        <main className="main-content">
+          <button
+            className="new-space-btn"
+            onClick={() => setShowCreateSubspace(true)}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            New Space
+          </button>
+        </div>
+
+        <div className="gentle-reminder">
+          <h4>Gentle reminder</h4>
+          <p>
+            Share at your own pace. You can post anonymously and find moderated
+            subspaces designed to feel calm and safe.
+          </p>
+        </div>
+
+        <div className="sidebar-user">
+          <div className="user-avatar">
+            {user?.displayName?.[0]?.toUpperCase() || "U"}
+          </div>
+          <div className="user-info">
+            <div className="user-name">{user?.displayName || "Anonymous"}</div>
+            <div className="user-status">Community Member</div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <div className="forum-main">
+        <header className="forum-header">
+          <button
+            className="hamburger-btn"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+
+          <h1>
+            {view === "feed"
+              ? "home feed"
+              : view === "subspace"
+                ? `s/${currentSubspace}`
+                : currentPost?.title}
+          </h1>
+
+          <div className="header-pills">
+            <button
+              className={`header-pill ${sortBy === "hot" ? "active" : ""}`}
+              onClick={() => {
+                setSortBy("hot");
+                if (view === "post")
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            >
+              Hot
+            </button>
+            <button
+              className={`header-pill ${sortBy === "new" ? "active" : ""}`}
+              onClick={() => {
+                setSortBy("new");
+                if (view === "post")
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            >
+              New
+            </button>
+            <button
+              className={`header-pill ${sortBy === "top" ? "active" : ""}`}
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            >
+              Top
+            </button>
+          </div>
+
+          <div className="header-actions-right">
+            <button
+              className="header-action-btn"
+              onClick={() => navigate("/chat")}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              Chat
+            </button>
+            <button
+              className="header-action-btn accent"
+              onClick={() => setShowCreateSubspace(true)}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              SubSpace
+            </button>
+            <button className="header-action-btn logout" onClick={logout}>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              Logout
+            </button>
+          </div>
+        </header>
+
+        <div className="forum-feed">
           {view === "feed" && (
             <>
-              <h2>Home Feed</h2>
+              {/* Post Composer */}
+              <div className="post-composer">
+                <div className="composer-avatar">
+                  {user?.displayName?.[0]?.toUpperCase() || "U"}
+                </div>
+                <input
+                  type="text"
+                  placeholder="Share what's on your mind..."
+                  onClick={() => setShowCreatePost(true)}
+                  readOnly
+                />
+                <button
+                  className="post-btn"
+                  onClick={() => setShowCreatePost(true)}
+                >
+                  Post
+                </button>
+              </div>
+
+              {/* Community Guidelines Banner */}
+              <div className="guidelines-banner">
+                <div className="banner-icon">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 6v6l4 2" />
+                  </svg>
+                </div>
+                <div className="banner-content">
+                  <h3>Community Guidelines & Crisis Resources</h3>
+                  <p>
+                    SafeSpace is a supportive environment for sharing stories,
+                    asking for comfort, and finding trusted resources when
+                    things feel heavy.
+                  </p>
+                </div>
+              </div>
+
+              {/* Post Feed */}
               {posts.map((post) => (
                 <div
                   key={post._id}
                   className="post-card"
                   onClick={() => fetchPost(post._id)}
                 >
-                  <div className="post-meta">
+                  <div className="post-header">
                     <span className="subspace-tag">
-                      {post.subspace?.name}
+                      s/{post.subspace?.name}
                     </span>
-                    <span>
-                      · {post.author?.displayName} · {timeAgo(post.createdAt)}
+                    <span className="post-meta">
+                      Posted by u/{post.author?.displayName}
                     </span>
+                    <span className="post-time">{timeAgo(post.createdAt)}</span>
                   </div>
-                  <h3>{post.title}</h3>
-                  <p>{post.content.slice(0, 200)}...</p>
+
+                  <h3 className="post-title">{post.title}</h3>
+                  <p className="post-content">
+                    {post.content.slice(0, 200)}
+                    {post.content.length > 200 ? "..." : ""}
+                  </p>
+
                   <div className="post-actions">
                     <button
+                      className={`action-btn upvote-btn ${post.hasUpvoted ? "upvoted" : ""}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleUpvote(post._id);
                       }}
                     >
-                      {post.upvoteCount} upvotes
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <polyline points="18 15 12 9 6 15" />
+                      </svg>
+                      {post.upvoteCount}
                     </button>
-                    <span>{post.commentCount} replies</span>
+
+                    <button className="action-btn comment-btn">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                      {post.commentCount || 0} Comments
+                    </button>
+
+                    {isPostOwner(post) && (
+                      <button
+                        className="action-btn delete-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeletePost(post._id);
+                        }}
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
             </>
           )}
 
+          {/* Subspace view - similar structure but for specific subspace */}
           {view === "subspace" && (
             <>
               <div className="subspace-header">
-                <h2>s/{currentSubspace}</h2>
-                <div className="subspace-actions">
-                  <button
-                    onClick={() => setShowCreatePost(true)}
-                    className="create-btn"
+                <button
+                  className="post-btn"
+                  onClick={() => setShowCreatePost(true)}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
                   >
-                    + Post
-                  </button>
-                  <button
-                    onClick={() => handleDeleteSubspace(currentSubspace)}
-                    className="delete-btn"
-                  >
-                    Delete Space
-                  </button>
-                </div>
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  New Post
+                </button>
               </div>
+
               {posts.map((post) => (
                 <div
                   key={post._id}
                   className="post-card"
                   onClick={() => fetchPost(post._id)}
                 >
-                  <div className="post-meta">
-                    <span>
-                      {post.author?.displayName} · {timeAgo(post.createdAt)}
+                  <div className="post-header">
+                    <span className="post-meta">
+                      Posted by u/{post.author?.displayName}
                     </span>
+                    <span className="post-time">{timeAgo(post.createdAt)}</span>
                   </div>
-                  <h3>{post.title}</h3>
-                  <p>{post.content.slice(0, 200)}...</p>
+
+                  <h3 className="post-title">{post.title}</h3>
+                  <p className="post-content">
+                    {post.content.slice(0, 200)}
+                    {post.content.length > 200 ? "..." : ""}
+                  </p>
+
                   <div className="post-actions">
                     <button
+                      className={`action-btn upvote-btn ${post.hasUpvoted ? "upvoted" : ""}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleUpvote(post._id);
                       }}
                     >
-                      {post.upvoteCount} upvotes
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <polyline points="18 15 12 9 6 15" />
+                      </svg>
+                      {post.upvoteCount}
                     </button>
-                    <span>{post.commentCount} replies</span>
+
+                    <button className="action-btn comment-btn">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                      {post.commentCount || 0} Comments
+                    </button>
+
+                    {isPostOwner(post) && (
+                      <button
+                        className="action-btn delete-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeletePost(post._id);
+                        }}
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
             </>
           )}
 
+          {/* Post detail view */}
           {view === "post" && currentPost && (
             <div className="post-detail">
               <button
                 className="back-btn"
                 onClick={() => {
-                  setView("subspace");
-                  fetchSubspacePosts(currentPost.subspace?.name);
+                  if (currentSubspace) {
+                    fetchSubspacePosts(currentSubspace);
+                  } else {
+                    fetchFeed();
+                  }
                 }}
               >
-                ← back
-              </button>
-              <div className="post-meta">
-                <span>
-                  s/{currentPost.subspace?.name}
-                </span>
-                <span>
-                  · {currentPost.author?.displayName} ·{" "}
-                  {timeAgo(currentPost.createdAt)}
-                </span>
-              </div>
-              <h2>{currentPost.title}</h2>
-              <p className="post-content">{currentPost.content}</p>
-              <div className="post-actions">
-                <button onClick={() => handleUpvote(currentPost._id)}>
-                  {currentPost.upvoteCount} upvotes
-                </button>
-                <span>{currentPost.commentCount} replies</span>
-                <button
-                  className="delete-post-btn"
-                  onClick={() => handleDeletePost(currentPost._id)}
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
                 >
-                  Delete
-                </button>
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+                Back
+              </button>
+
+              <div className="post-card detail">
+                <div className="post-header">
+                  <span className="subspace-tag">
+                    s/{currentPost.subspace?.name}
+                  </span>
+                  <span className="post-meta">
+                    Posted by u/{currentPost.author?.displayName}
+                  </span>
+                  <span className="post-time">
+                    {timeAgo(currentPost.createdAt)}
+                  </span>
+                </div>
+
+                <h1 className="post-title">{currentPost.title}</h1>
+                <div className="post-content">{currentPost.content}</div>
+
+                <div className="post-actions">
+                  <button
+                    className={`action-btn upvote-btn ${currentPost.hasUpvoted ? "upvoted" : ""}`}
+                    onClick={() => handleUpvote(currentPost._id)}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <polyline points="18 15 12 9 6 15" />
+                    </svg>
+                    {currentPost.upvoteCount}
+                  </button>
+
+                  <span className="comment-count">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                    {comments.length} Comments
+                  </span>
+
+                  {isPostOwner(currentPost) && (
+                    <button
+                      className="action-btn delete-btn"
+                      onClick={() => handleDeletePost(currentPost._id)}
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      </svg>
+                      Delete
+                    </button>
+                  )}
+                </div>
               </div>
 
+              {/* Comments section */}
               <div className="comments-section">
-                <h4>Replies</h4>
-                <form onSubmit={handleCreateComment} className="comment-form">
+                <h4>Comments</h4>
+
+                <form className="comment-form" onSubmit={createComment}>
                   <textarea
                     name="content"
-                    placeholder="Add a reply..."
+                    placeholder="Share your thoughts..."
                     required
+                    rows={3}
                   />
                   <div className="form-row">
                     <label>
-                      <input type="checkbox" name="anonymous" defaultChecked />{" "}
-                      anonymous
+                      <input type="checkbox" name="anonymous" />
+                      Post anonymously
                     </label>
                     <button type="submit">Reply</button>
                   </div>
                 </form>
-                {comments.map((c) => (
-                  <div key={c._id} className="comment">
-                    <div className="comment-meta">
-                      {c.author?.displayName} · {timeAgo(c.createdAt)}
+
+                <div className="comments-list">
+                  {comments.map((comment) => (
+                    <div key={comment._id} className="comment">
+                      <div className="comment-meta">
+                        <span>u/{comment.author?.displayName}</span>
+                        <span>{timeAgo(comment.createdAt)}</span>
+                      </div>
+                      <p>{comment.content}</p>
                     </div>
-                    <p>{c.content}</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           )}
-        </main>
+        </div>
       </div>
 
+      {/* Modals */}
       {showCreateSubspace && (
         <div
           className="modal-overlay"
           onClick={() => setShowCreateSubspace(false)}
         >
-          <form
-            className="modal"
-            onClick={(e) => e.stopPropagation()}
-            onSubmit={handleCreateSubspace}
-          >
-            <h3>Create Subspace</h3>
-            <input name="name" placeholder="Name (e.g., anxiety)" required />
-            <input name="icon" placeholder="Emoji icon (e.g., ○)" />
-            <textarea name="description" placeholder="Description" />
-            <div className="modal-actions">
-              <button
-                type="button"
-                onClick={() => setShowCreateSubspace(false)}
-              >
-                Cancel
-              </button>
-              <button type="submit">Create</button>
-            </div>
-          </form>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Create New Space</h3>
+            <form onSubmit={createSubspace}>
+              <input name="name" placeholder="Space name" required />
+              <textarea name="description" placeholder="Description" required />
+              <label>
+                <input type="checkbox" name="anonymous" />
+                Allow anonymous posts
+              </label>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateSubspace(false)}
+                >
+                  Cancel
+                </button>
+                <button type="submit">Create Space</button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
       {showCreatePost && (
         <div className="modal-overlay" onClick={() => setShowCreatePost(false)}>
-          <form
-            className="modal"
-            onClick={(e) => e.stopPropagation()}
-            onSubmit={handleCreatePost}
-          >
-            <h3>Create Post in s/{currentSubspace}</h3>
-            <input name="title" placeholder="Title" required />
-            <textarea
-              name="content"
-              placeholder="Share your thoughts..."
-              required
-              rows={6}
-            />
-            <label>
-              <input type="checkbox" name="anonymous" defaultChecked /> Post
-              anonymously
-            </label>
-            <div className="modal-actions">
-              <button type="button" onClick={() => setShowCreatePost(false)}>
-                Cancel
-              </button>
-              <button type="submit">Post</button>
-            </div>
-          </form>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Create New Post</h3>
+            <form onSubmit={createPost}>
+              <input name="title" placeholder="Post title" required />
+              <textarea
+                name="content"
+                placeholder="Share your thoughts..."
+                required
+                rows={5}
+              />
+              {!currentSubspace && (
+                <select name="subspace" required>
+                  <option value="">Select a space</option>
+                  {subspaces.map((s) => (
+                    <option key={s._id} value={s.name}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <label>
+                <input type="checkbox" name="anonymous" />
+                Post anonymously
+              </label>
+              <div className="modal-actions">
+                <button type="button" onClick={() => setShowCreatePost(false)}>
+                  Cancel
+                </button>
+                <button type="submit">Create Post</button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
