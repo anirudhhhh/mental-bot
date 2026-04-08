@@ -1,85 +1,59 @@
 # SafeSpace Deployment Guide
 
-## Vercel Deployment
+## Render Deployment
+
+This repository includes a `render.yaml` blueprint that creates:
+
+- a Node web service for the API and Socket.io server
+- a static site for the React client
 
 ### Prerequisites
 
-1. Vercel account
+1. Render account
 2. MongoDB Atlas database
-3. Google Gemini API key
+3. OpenRouter API key or other AI provider key used by your backend
 
 ### Steps
 
-1. **Install Vercel CLI**
+1. Push the repository to GitHub.
+2. In Render, choose New → Blueprint.
+3. Connect the GitHub repository.
+4. Render will read `render.yaml` and create the services.
+5. Add the environment variables listed below.
+6. Redeploy after the variables are set.
 
-```bash
-npm install -g vercel
-```
+### Production environment variables
 
-2. **Login to Vercel**
-
-```bash
-vercel login
-```
-
-3. **Set Environment Variables in Vercel Dashboard**
-   Go to Project Settings → Environment Variables and add:
-
-- `MONGODB_URI` - Your MongoDB Atlas connection string
-- `JWT_SECRET` - Your JWT secret (64 chars)
-- `GEMINI_API_KEY` - Your Google Gemini API key
-- `NODE_ENV` - Set to `production`
-
-4. **Deploy**
-
-```bash
-vercel
-```
-
-### Important Notes
-
-**Socket.io Limitation on Vercel:**
-
-- Vercel serverless functions don't support WebSocket connections properly
-- Socket.io real-time chat **will not work** on Vercel
-
-**Recommended Alternative Hosting:**
-
-- **Railway** (supports WebSockets, easy deployment)
-- **Render** (free tier, full WebSocket support)
-- **Fly.io** (global deployment, WebSocket support)
-- **DigitalOcean App Platform**
-
-### Deploy to Railway (Recommended)
-
-1. Push code to GitHub
-2. Go to railway.app
-3. Create new project → Deploy from GitHub
-4. Add environment variables
-5. Deploy!
-
-Railway automatically detects Node.js and builds both server and client.
-
-### Environment Variables for Production
+Set these in Render:
 
 ```env
+NODE_ENV=production
 MONGODB_URI=mongodb+srv://...
 JWT_SECRET=your-secret-here
-GEMINI_API_KEY=your-api-key
-NODE_ENV=production
-PORT=5001
+OPENROUTER_API_KEY=your-api-key
+CLIENT_URL=https://your-client.onrender.com
+CORS_ORIGIN=https://your-client.onrender.com
+REACT_APP_API_URL=https://your-server.onrender.com/api
+REACT_APP_SOCKET_URL=https://your-server.onrender.com
 ```
 
-### Client Configuration
+### Notes
 
-Update API URLs in production:
+- Render supports WebSockets on web services, so Socket.io should work.
+- Make sure the client environment variables point to the deployed server URL.
+- Keep local `.env` files out of git.
 
-- `/client/src/contexts/AuthContext.js` - Change `API_URL`
-- `/client/src/components/Chat.js` - Update Socket.io URL
-- `/client/src/components/Forum.js` - Change `API_URL`
+## Local development
 
-Or use environment variables:
+### Example
 
-```js
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5001/api";
+```bash
+cd server
+cp ../.env.example .env
+npm install
+npm run dev
+
+cd ../client
+npm install
+npm start
 ```

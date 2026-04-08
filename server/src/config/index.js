@@ -15,6 +15,10 @@ const config = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
   openRouterApiKey: process.env.OPENROUTER_API_KEY,
   clientUrl: process.env.CLIENT_URL || "http://localhost:3000",
+  corsOrigin:
+    process.env.CORS_ORIGIN ||
+    process.env.CLIENT_URL ||
+    "http://localhost:3000",
 };
 
 const connectDB = async () => {

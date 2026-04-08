@@ -14,7 +14,7 @@ SafeSpace is a mental-wellness platform with an AI companion, anonymous forum sp
 
 - `client/` — React frontend
 - `server/` — Express + Socket.io API
-- `vercel.json` — Vercel routing/build configuration
+- `render.yaml` — Render blueprint for the full stack
 
 ## Local development
 
@@ -56,26 +56,36 @@ Create `server/.env` from `.env.example` and set the required values. Common var
 | `RATE_LIMIT_WINDOW_MS` | Rate-limit window in ms     |
 | `RATE_LIMIT_MAX`       | Maximum requests per window |
 
-## Vercel deployment
+## Render deployment
 
-This repo is already configured for Vercel:
+This repo includes a `render.yaml` blueprint for:
 
-- Frontend builds from `client/`
-- Serverless API routes point to `server/src/index.js`
-- SPA routes like `/login`, `/signup`, `/chat`, and `/forum` all resolve to the React app
+- `safespace-server` as a Node web service
+- `safespace-client` as a static site
 
 ### Deploy steps
 
-1. Import the repository into Vercel.
-2. Set the project root to the repository root.
-3. Confirm the build uses the included `vercel.json`.
-4. Add production environment variables in the Vercel dashboard.
-5. Deploy.
+1. Push the repository to GitHub.
+2. In Render, create a new Blueprint and point it at this repo.
+3. Render will read `render.yaml` and create both services.
+4. Set the production environment variables in Render.
+5. Update the client env values to point to the deployed server URL.
+
+### Required production env values
+
+- `NODE_ENV=production`
+- `MONGODB_URI=<your MongoDB Atlas URI>`
+- `JWT_SECRET=<strong random secret>`
+- `OPENROUTER_API_KEY=<your API key>`
+- `CLIENT_URL=<your Render static site URL>`
+- `CORS_ORIGIN=<your Render static site URL>`
+- `REACT_APP_API_URL=<your Render server URL>/api`
+- `REACT_APP_SOCKET_URL=<your Render server URL>`
 
 ### Notes
 
-- Keep secrets out of git; use Vercel env vars and local `.env` files.
-- If you change API routes, update `vercel.json` accordingly.
+- Keep secrets out of git; use Render env vars and local `.env` files.
+- Render supports WebSockets on web services, so chat should work there.
 
 ## API overview
 

@@ -13,9 +13,6 @@ client/.env
 client/.env.local
 client/.env.*.local
 
-# Vercel
-.vercel/
-
 # Build outputs
 dist/
 build/
