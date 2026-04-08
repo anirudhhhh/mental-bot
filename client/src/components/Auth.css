@@ -27,10 +27,21 @@
   min-height: 100vh;
   display: grid;
   grid-template-columns: 1fr 480px;
-  background: linear-gradient(180deg, #0a1018 0%, #030508 100%);
+  position: relative;
+  isolation: isolate;
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif;
   line-height: 1.6;
+  color-scheme: dark;
+}
+
+.auth-container::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(180deg, #0a1018 0%, #030508 100%);
+  z-index: 0;
+  pointer-events: none;
 }
 
 /* Left Side */
@@ -43,11 +54,12 @@
   text-align: center;
   position: relative;
   overflow: hidden;
+  z-index: 1;
 }
 
 .auth-left::before {
   content: "";
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
@@ -60,14 +72,17 @@
     ),
     radial-gradient(
       circle at 80% 20%,
-      rgba(212, 168, 68, 0.08) 0%,
+      rgba(212, 168, 68, 0.1) 0%,
       transparent 50%
     );
   pointer-events: none;
 }
 
 .auth-branding {
-  position: relative;
+  position: fixed;
+  top: 32px;
+  left: 32px;
+  right: 32px;
   z-index: 1;
 }
 
@@ -129,14 +144,17 @@
 }
 
 .auth-hero {
-  position: fixed;
   z-index: 1;
-  margin-top: 13em;
-  margin-left: 5em;
-  margin-right: 35em;
+  position: fixed;
+  top: 50%;
+  left: calc((100vw - 480px) / 2);
+  transform: translate(-50%, -50%);
+  max-width: 620px;
   display: flex;
   flex-direction: column;
+  align-items: center;
   text-align: center;
+  /* transform: translateY(-3em); */
 }
 
 .auth-hero h1 {
@@ -144,7 +162,7 @@
   font-weight: 700;
   color: var(--t1);
   line-height: 1.1;
-  margin: 0 auto 24px auto;
+  margin: 0 0 24px 0;
   letter-spacing: -0.03em;
   max-width: 600px;
 }
@@ -154,7 +172,51 @@
   color: var(--t3);
   line-height: 1.7;
   max-width: 500px;
-  margin: 0 auto;
+  margin: 0;
+}
+
+.auth-gradient-bubbles {
+  margin-top: 28px;
+  width: 100%;
+  max-width: 560px;
+  display: grid;
+  gap: 12px;
+}
+
+.auth-gradient-bubble {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border2);
+  background:
+    linear-gradient(120deg, rgba(59, 130, 246, 0.08), rgba(212, 168, 68, 0.08)),
+    var(--bg3);
+}
+
+.bubble-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  background: rgba(59, 130, 246, 0.14);
+  border: 1px solid rgba(59, 130, 246, 0.24);
+  flex-shrink: 0;
+}
+
+.bubble-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.bubble-text {
+  font-size: 0.92rem;
+  color: var(--t2);
+  font-weight: 500;
 }
 
 .auth-features {
@@ -232,11 +294,15 @@
   align-items: center;
   justify-content: center;
   padding: 40px;
+  position: relative;
+  z-index: 3;
 }
 
 .auth-form-container {
   width: 100%;
   max-width: 400px;
+  position: relative;
+  z-index: 3;
 }
 
 .auth-toggle {
@@ -246,6 +312,9 @@
   border-radius: 8px;
   padding: 4px;
   margin-bottom: 32px;
+  position: relative;
+  z-index: 4;
+  isolation: isolate;
 }
 
 .auth-toggle button {
@@ -260,12 +329,15 @@
   cursor: pointer;
   transition: all 200ms;
   font-family: inherit;
+  position: relative;
+  z-index: 5;
+  pointer-events: auto;
 }
 
 .auth-toggle button.active {
-  background: var(--bg);
-  color: var(--t1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: var(--primary);
+  color: var(--bg);
+  box-shadow: 0 4px 14px rgba(212, 168, 68, 0.24);
 }
 
 .auth-form-header {
@@ -332,6 +404,12 @@
   font-size: 0.9rem;
   font-family: inherit;
   transition: all 200ms;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.input-wrapper input.password-input {
+  padding-right: 52px;
 }
 
 .input-wrapper input:focus {
@@ -340,8 +418,48 @@
   box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.1);
 }
 
+.input-wrapper input:-webkit-autofill,
+.input-wrapper input:-webkit-autofill:hover,
+.input-wrapper input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--t1);
+  -webkit-box-shadow: 0 0 0 1000px var(--bg3) inset;
+  box-shadow: 0 0 0 1000px var(--bg3) inset;
+  caret-color: var(--t1);
+}
+
 .input-wrapper input::placeholder {
   color: var(--t4);
+}
+
+.password-toggle {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: var(--t4);
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  transition: all 200ms;
+}
+
+.password-toggle:hover {
+  color: var(--t2);
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.password-toggle:focus-visible {
+  outline: 2px solid rgba(212, 168, 68, 0.45);
+  outline-offset: 2px;
+}
+
+.password-toggle svg {
+  pointer-events: none;
 }
 
 .form-group textarea {

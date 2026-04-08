@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import axios from "axios";
 import "./Forum.css";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5001/api";
+const CREATE_NEW_SUBSPACE_OPTION = "__create_new_subspace__";
 
 export default function Forum() {
   const navigate = useNavigate();
+  const { subspaceSlug } = useParams();
   const [view, setView] = useState("feed");
   const [subspaces, setSubspaces] = useState([]);
   const [posts, setPosts] = useState([]);
@@ -16,6 +18,13 @@ export default function Forum() {
   const [comments, setComments] = useState([]);
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [showCreateSubspace, setShowCreateSubspace] = useState(false);
+  const [postSubspaceSelection, setPostSubspaceSelection] = useState("");
+  const [isSubspacePickerOpen, setIsSubspacePickerOpen] = useState(false);
+  const [newPostSubspaceName, setNewPostSubspaceName] = useState("");
+  const [newPostSubspaceDescription, setNewPostSubspaceDescription] =
+    useState("");
+  const [subspaceFormError, setSubspaceFormError] = useState("");
+  const [postFormError, setPostFormError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -25,10 +34,58 @@ export default function Forum() {
 
   const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
 
+  const normalizeSubspaceKey = (value) => {
+    if (!value) return "";
+    const raw = String(value).trim().toLowerCase();
+    try {
+      return decodeURIComponent(raw);
+    } catch {
+      return raw;
+    }
+  };
+
+  const doesSubspaceMatch = (subspace, identifier) => {
+    const target = normalizeSubspaceKey(identifier);
+    if (!target) return false;
+
+    return [subspace?._id, subspace?.slug, subspace?.name]
+      .map(normalizeSubspaceKey)
+      .includes(target);
+  };
+
+  const updateSubspacePostCount = (identifier, delta) => {
+    if (!identifier || !delta) return;
+
+    setSubspaces((prev) =>
+      prev.map((s) => {
+        if (!doesSubspaceMatch(s, identifier)) return s;
+
+        const nextCount = Math.max(0, (Number(s.postCount) || 0) + delta);
+        return { ...s, postCount: nextCount };
+      }),
+    );
+  };
+
+  const formatCompactCount = (value) => {
+    const numeric = Number(value) || 0;
+    if (numeric < 1000) return String(numeric);
+
+    return new Intl.NumberFormat("en", {
+      notation: "compact",
+      maximumFractionDigits: 1,
+    })
+      .format(numeric)
+      .replace(/([A-Z])$/, (match) => match.toLowerCase());
+  };
+
   useEffect(() => {
     fetchUserSubspaces();
-    fetchFeed("hot");
-  }, []);
+    if (subspaceSlug) {
+      fetchSubspacePosts(subspaceSlug, "hot");
+    } else {
+      fetchFeed("hot");
+    }
+  }, [subspaceSlug]);
 
   useEffect(() => {
     if (searchQuery.length >= 2) {
@@ -43,6 +100,25 @@ export default function Forum() {
     if (view === "subspace" && currentSubspace)
       fetchSubspacePosts(currentSubspace, sortBy);
   }, [sortBy]);
+
+  useEffect(() => {
+    if (subspaceSlug) {
+      setView("subspace");
+      setCurrentSubspace(subspaceSlug);
+    } else if (view === "subspace") {
+      setView("feed");
+      setCurrentSubspace(null);
+    }
+  }, [subspaceSlug]);
+
+  useEffect(() => {
+    if (!showCreatePost) return;
+    setPostSubspaceSelection(currentSubspace || "");
+    setIsSubspacePickerOpen(false);
+    setNewPostSubspaceName("");
+    setNewPostSubspaceDescription("");
+    setPostFormError("");
+  }, [showCreatePost, currentSubspace]);
 
   // All the existing functions (fetchUserSubspaces, fetchFeed, etc.) remain the same...
   const fetchUserSubspaces = async () => {
@@ -62,6 +138,7 @@ export default function Forum() {
     try {
       setView("feed");
       setCurrentSubspace(null);
+      setCurrentPost(null);
       const res = await axios.get(
         `${API_URL}/forum/feed?sort=${sort}`,
         authHeaders,
@@ -72,12 +149,14 @@ export default function Forum() {
     }
   };
 
-  const fetchSubspacePosts = async (name, sort = sortBy) => {
+  const fetchSubspacePosts = async (slug, sort = sortBy) => {
     try {
       setView("subspace");
-      setCurrentSubspace(name);
+      setCurrentSubspace(slug);
+      setCurrentPost(null);
+      const identifier = encodeURIComponent(slug);
       const res = await axios.get(
-        `${API_URL}/forum/s/${name}/posts?sort=${sort}`,
+        `${API_URL}/forum/s/${identifier}/posts?sort=${sort}`,
         authHeaders,
       );
       setPosts(res.data);
@@ -120,56 +199,165 @@ export default function Forum() {
         {},
         authHeaders,
       );
-      if (view === "feed") fetchFeed();
-      else if (view === "subspace") fetchSubspacePosts(currentSubspace);
+      if (view === "feed") fetchFeed(sortBy);
+      else if (view === "subspace") fetchSubspacePosts(currentSubspace, sortBy);
       else if (view === "post") fetchPost(currentPost._id);
-    } catch (err) {}
+    } catch (err) {
+      console.error("Failed to create post:", err);
+    }
   };
 
   const handleDeletePost = async (postId) => {
+    const postToDelete =
+      posts.find((p) => p._id === postId) ||
+      (currentPost?._id === postId ? currentPost : null);
+
+    const targetSubspaceIdentifier =
+      postToDelete?.subspace?.slug ||
+      postToDelete?.subspace?.name ||
+      postToDelete?.subspace?._id ||
+      currentSubspace;
+
     try {
+      updateSubspacePostCount(targetSubspaceIdentifier, -1);
       await axios.delete(`${API_URL}/forum/post/${postId}`, authHeaders);
-      if (view === "feed") fetchFeed();
-      else if (view === "subspace") fetchSubspacePosts(currentSubspace);
-    } catch (err) {}
+      if (view === "feed") fetchFeed(sortBy);
+      else if (view === "subspace") fetchSubspacePosts(currentSubspace, sortBy);
+      else if (view === "post") {
+        if (currentSubspace) fetchSubspacePosts(currentSubspace, sortBy);
+        else fetchFeed(sortBy);
+      }
+    } catch (err) {
+      updateSubspacePostCount(targetSubspaceIdentifier, 1);
+    }
   };
 
-  const handleDeleteSubspace = async (name) => {
+  const handleDeleteSubspace = async (slug) => {
     try {
-      await axios.delete(`${API_URL}/forum/s/${name}`, authHeaders);
-      fetchUserSubspaces();
-      if (view === "subspace" && currentSubspace === name) {
-        setView("feed");
-        fetchFeed();
+      const identifier = encodeURIComponent(slug);
+      await axios.delete(`${API_URL}/forum/s/${identifier}`, authHeaders);
+      await fetchUserSubspaces();
+      if (view === "subspace" && currentSubspace === slug) {
+        navigate("/forum");
       }
-    } catch (err) {}
+    } catch (err) {
+      console.error("Failed to delete subspace:", err);
+    }
+  };
+
+  const openCreateSubspaceModal = () => {
+    setSubspaceFormError("");
+    setShowCreateSubspace(true);
+  };
+
+  const closeCreateSubspaceModal = () => {
+    setSubspaceFormError("");
+    setShowCreateSubspace(false);
   };
 
   const createSubspace = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
+
+    const name = String(formData.get("name") || "").trim();
+    const description = String(formData.get("description") || "").trim();
+
+    setSubspaceFormError("");
+
+    if (name.length < 3) {
+      setSubspaceFormError("Space name must be at least 3 characters.");
+      return;
+    }
+
+    if (!description) {
+      setSubspaceFormError("Please add a short description for the space.");
+      return;
+    }
+
     try {
       await axios.post(
         `${API_URL}/forum/subspaces`,
         {
-          name: formData.get("name"),
-          description: formData.get("description"),
-          isAnonymous: formData.get("anonymous") === "on",
+          name,
+          description,
         },
         authHeaders,
       );
-      setShowCreateSubspace(false);
+      closeCreateSubspaceModal();
       fetchUserSubspaces();
-    } catch (err) {}
+    } catch (err) {
+      const apiError = err.response?.data?.error;
+      if (apiError === "Name must be at least 3 characters") {
+        setSubspaceFormError("Space name must be at least 3 characters.");
+        return;
+      }
+
+      setSubspaceFormError(apiError || "Could not create space. Try again.");
+    }
   };
 
   const createPost = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
-    const subspaceName = currentSubspace || formData.get("subspace");
+
+    setPostFormError("");
+
+    let subspaceSlugValue = postSubspaceSelection || currentSubspace;
+
+    if (!subspaceSlugValue) {
+      setPostFormError("Please choose a space for this post.");
+      return;
+    }
+
+    if (subspaceSlugValue === CREATE_NEW_SUBSPACE_OPTION) {
+      const trimmedName = newPostSubspaceName.trim();
+      const trimmedDescription = newPostSubspaceDescription.trim();
+
+      if (!trimmedName || !trimmedDescription) {
+        setPostFormError(
+          "Please add a name and description for the new space.",
+        );
+        return;
+      }
+
+      try {
+        const createdSubspaceRes = await axios.post(
+          `${API_URL}/forum/subspaces`,
+          {
+            name: trimmedName,
+            description: trimmedDescription,
+            isPrivate: false,
+          },
+          authHeaders,
+        );
+
+        const createdSubspace = createdSubspaceRes.data;
+        subspaceSlugValue = createdSubspace.slug || createdSubspace.name;
+
+        setSubspaces((prev) => {
+          const exists = prev.some((s) =>
+            doesSubspaceMatch(s, subspaceSlugValue),
+          );
+          if (exists) return prev;
+          return [
+            {
+              ...createdSubspace,
+              postCount: createdSubspace.postCount || 0,
+            },
+            ...prev,
+          ];
+        });
+      } catch (err) {
+        setPostFormError(
+          err.response?.data?.error || "Failed to create the new space.",
+        );
+        return;
+      }
+    }
+
     try {
       await axios.post(
-        `${API_URL}/forum/s/${subspaceName}/posts`,
+        `${API_URL}/forum/s/${encodeURIComponent(subspaceSlugValue)}/posts`,
         {
           title: formData.get("title"),
           content: formData.get("content"),
@@ -177,10 +365,25 @@ export default function Forum() {
         },
         authHeaders,
       );
+      updateSubspacePostCount(subspaceSlugValue, 1);
       setShowCreatePost(false);
-      if (view === "feed") fetchFeed();
-      else if (view === "subspace") fetchSubspacePosts(currentSubspace);
-    } catch (err) {}
+      setIsSubspacePickerOpen(false);
+      setNewPostSubspaceName("");
+      setNewPostSubspaceDescription("");
+      setPostFormError("");
+      fetchUserSubspaces();
+
+      if (subspaceSlugValue) {
+        navigate(`/forum/s/${encodeURIComponent(subspaceSlugValue)}`);
+        fetchSubspacePosts(subspaceSlugValue, sortBy);
+      } else if (view === "feed") {
+        fetchFeed(sortBy);
+      } else if (view === "subspace") {
+        fetchSubspacePosts(currentSubspace, sortBy);
+      }
+    } catch (err) {
+      setPostFormError(err.response?.data?.error || "Failed to create post.");
+    }
   };
 
   const createComment = async (e) => {
@@ -210,6 +413,23 @@ export default function Forum() {
   const isPostOwner = (post) =>
     post.authorId === user?.id || post.author?._id === user?.id;
 
+  const currentSubspaceData = subspaces.find(
+    (s) => (s.slug || s.name) === currentSubspace,
+  );
+
+  const selectedSubspaceData = subspaces.find(
+    (s) => (s.slug || s.name) === postSubspaceSelection,
+  );
+
+  const selectedSubspaceLabel =
+    postSubspaceSelection === CREATE_NEW_SUBSPACE_OPTION
+      ? "Create new space"
+      : selectedSubspaceData?.name ||
+        currentSubspaceData?.name ||
+        (postSubspaceSelection
+          ? `s/${postSubspaceSelection}`
+          : "Select a space");
+
   const handleContextMenu = (e, subspaceName, isOwner) => {
     if (!isOwner) return;
     e.preventDefault();
@@ -229,8 +449,7 @@ export default function Forum() {
           <div
             className="forum-logo"
             onClick={() => {
-              setView("feed");
-              fetchFeed();
+              navigate("/forum");
               setSidebarOpen(false);
             }}
           >
@@ -262,7 +481,9 @@ export default function Forum() {
                     key={s._id}
                     className="search-result-item"
                     onClick={() => {
-                      fetchSubspacePosts(s.name);
+                      navigate(
+                        `/forum/s/${encodeURIComponent(s.slug || s.name)}`,
+                      );
                       setSidebarOpen(false);
                       setSearchQuery("");
                     }}
@@ -282,22 +503,30 @@ export default function Forum() {
           {subspaces.map((s) => (
             <div
               key={s._id}
-              className={`subspace-item ${currentSubspace === s.name ? "active" : ""}`}
+              className={`subspace-item ${
+                currentSubspace === (s.slug || s.name) ? "active" : ""
+              }`}
               onClick={() => {
-                fetchSubspacePosts(s.name);
+                navigate(`/forum/s/${encodeURIComponent(s.slug || s.name)}`);
                 setSidebarOpen(false);
               }}
-              onContextMenu={(e) => handleContextMenu(e, s.name, true)}
+              onContextMenu={(e) =>
+                handleContextMenu(e, s.slug || s.name, true)
+              }
             >
               <span className="subspace-prefix">#</span>
               <span className="subspace-name">{s.name}</span>
               <div className="subspace-count-menu">
-                <span className="member-count">{s.memberCount}</span>
+                <span className="member-count">
+                  {formatCompactCount(s.postCount ?? 0)}
+                </span>
                 <button
                   className="subspace-menu-btn"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setMenuOpen(menuOpen === s.name ? null : s.name);
+                    setMenuOpen(
+                      menuOpen === (s.slug || s.name) ? null : s.slug || s.name,
+                    );
                   }}
                 >
                   <svg
@@ -312,7 +541,7 @@ export default function Forum() {
                   </svg>
                 </button>
               </div>
-              {menuOpen === s.name && (
+              {menuOpen === (s.slug || s.name) && (
                 <div
                   className="subspace-menu"
                   onClick={(e) => e.stopPropagation()}
@@ -320,7 +549,7 @@ export default function Forum() {
                   <button
                     className="delete-option"
                     onClick={() => {
-                      handleDeleteSubspace(s.name);
+                      handleDeleteSubspace(s.slug || s.name);
                       setMenuOpen(null);
                     }}
                   >
@@ -340,10 +569,7 @@ export default function Forum() {
             </div>
           ))}
 
-          <button
-            className="new-space-btn"
-            onClick={() => setShowCreateSubspace(true)}
-          >
+          <button className="new-space-btn" onClick={openCreateSubspaceModal}>
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -399,7 +625,7 @@ export default function Forum() {
             {view === "feed"
               ? "home feed"
               : view === "subspace"
-                ? `s/${currentSubspace}`
+                ? `s/${currentSubspace || subspaceSlug || ""}`
                 : currentPost?.title}
           </h1>
 
@@ -449,7 +675,7 @@ export default function Forum() {
             </button>
             <button
               className="header-action-btn accent"
-              onClick={() => setShowCreateSubspace(true)}
+              onClick={openCreateSubspaceModal}
             >
               <svg
                 viewBox="0 0 24 24"
@@ -608,19 +834,21 @@ export default function Forum() {
             <>
               <div className="subspace-header">
                 <button
-                  className="post-btn"
+                  className="new-post-btn"
                   onClick={() => setShowCreatePost(true)}
                 >
                   <svg
-                    viewBox="0 0 24 24"
+                    viewBox="2 2 20 20"
+                    width="14"
+                    height="14"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="2"
+                    strokeWidth="3"
                   >
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
-                  New Post
+                  <span>New Post</span>
                 </button>
               </div>
 
@@ -707,9 +935,9 @@ export default function Forum() {
                 className="back-btn"
                 onClick={() => {
                   if (currentSubspace) {
-                    fetchSubspacePosts(currentSubspace);
+                    fetchSubspacePosts(currentSubspace, sortBy);
                   } else {
-                    fetchFeed();
+                    fetchFeed(sortBy);
                   }
                 }}
               >
@@ -827,24 +1055,17 @@ export default function Forum() {
 
       {/* Modals */}
       {showCreateSubspace && (
-        <div
-          className="modal-overlay"
-          onClick={() => setShowCreateSubspace(false)}
-        >
+        <div className="modal-overlay" onClick={closeCreateSubspaceModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Create New Space</h3>
             <form onSubmit={createSubspace}>
               <input name="name" placeholder="Space name" required />
               <textarea name="description" placeholder="Description" required />
-              <label>
-                <input type="checkbox" name="anonymous" />
-                Allow anonymous posts
-              </label>
+              {subspaceFormError && (
+                <div className="modal-form-error">{subspaceFormError}</div>
+              )}
               <div className="modal-actions">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateSubspace(false)}
-                >
+                <button type="button" onClick={closeCreateSubspaceModal}>
                   Cancel
                 </button>
                 <button type="submit">Create Space</button>
@@ -856,7 +1077,10 @@ export default function Forum() {
 
       {showCreatePost && (
         <div className="modal-overlay" onClick={() => setShowCreatePost(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal create-post-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3>Create New Post</h3>
             <form onSubmit={createPost}>
               <input name="title" placeholder="Post title" required />
@@ -866,16 +1090,82 @@ export default function Forum() {
                 required
                 rows={5}
               />
-              {!currentSubspace && (
-                <select name="subspace" required>
-                  <option value="">Select a space</option>
-                  {subspaces.map((s) => (
-                    <option key={s._id} value={s.name}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
+              <div className="subspace-picker">
+                <button
+                  type="button"
+                  className={`subspace-picker-trigger ${!postSubspaceSelection ? "placeholder" : ""}`}
+                  onClick={() => setIsSubspacePickerOpen((prev) => !prev)}
+                >
+                  <span>{selectedSubspaceLabel}</span>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+
+                {isSubspacePickerOpen && (
+                  <div className="subspace-picker-menu">
+                    {subspaces.map((s) => {
+                      const value = s.slug || s.name;
+                      return (
+                        <button
+                          key={s._id}
+                          type="button"
+                          className={`subspace-picker-option ${postSubspaceSelection === value ? "active" : ""}`}
+                          onClick={() => {
+                            setPostSubspaceSelection(value);
+                            setIsSubspacePickerOpen(false);
+                          }}
+                        >
+                          {s.name}
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      type="button"
+                      className={`subspace-picker-option create-new ${postSubspaceSelection === CREATE_NEW_SUBSPACE_OPTION ? "active" : ""}`}
+                      onClick={() => {
+                        setPostSubspaceSelection(CREATE_NEW_SUBSPACE_OPTION);
+                        setIsSubspacePickerOpen(false);
+                      }}
+                    >
+                      + Create new space
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {postSubspaceSelection === CREATE_NEW_SUBSPACE_OPTION && (
+                <>
+                  <input
+                    name="newSubspaceName"
+                    placeholder="New space name"
+                    value={newPostSubspaceName}
+                    onChange={(e) => setNewPostSubspaceName(e.target.value)}
+                    required
+                  />
+                  <textarea
+                    name="newSubspaceDescription"
+                    placeholder="New space description"
+                    value={newPostSubspaceDescription}
+                    onChange={(e) =>
+                      setNewPostSubspaceDescription(e.target.value)
+                    }
+                    rows={3}
+                    required
+                  />
+                </>
               )}
+
+              {postFormError && (
+                <div className="modal-form-error">{postFormError}</div>
+              )}
+
               <label>
                 <input type="checkbox" name="anonymous" />
                 Post anonymously

@@ -27,8 +27,8 @@ app.use(cors({ origin: "*", credentials: true }));
 app.use(express.json({ limit: "10kb" }));
 
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
+  windowMs: config.rateLimitWindowMs,
+  max: config.rateLimitMax,
   message: { error: "Too many requests, please try again later" },
 });
 app.use("/api", limiter);

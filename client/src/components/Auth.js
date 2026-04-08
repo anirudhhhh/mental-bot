@@ -1,11 +1,14 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import "./Auth.css";
 
-export default function Auth() {
-  const [isLogin, setIsLogin] = useState(false);
+export default function Auth({ mode = "signup" }) {
+  const navigate = useNavigate();
+  const [isLogin, setIsLogin] = useState(mode === "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [motivation, setMotivation] = useState("");
@@ -13,6 +16,10 @@ export default function Auth() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { login, register } = useAuth();
+
+  useEffect(() => {
+    setIsLogin(mode === "login");
+  }, [mode]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -56,17 +63,53 @@ export default function Auth() {
                 <path d="M6 10v2h3v8h2v-8h3v-2h-8zm5-6c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2z" />
               </svg>
             </div>
-            <span>Private, calm, moderated</span>
+            <span>Serene, Stable, Contained</span>
           </div>
         </div>
 
         <div className="auth-hero">
           <h1>A gentle place to share, heal, and feel less alone.</h1>
           <p>
-            Join a premium-feeling support space with moderated forums,
-            anonymous posting, trusted subspaces, and a calm companion chatbot
-            designed for difficult days.
+            Join a premium-feeling support space with guided forums, anonymous
+            posting, trusted subspaces, and a calm companion chatbot designed
+            for difficult days.
           </p>
+          <div className="auth-gradient-bubbles">
+            <div className="auth-gradient-bubble">
+              <div className="bubble-icon">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+              </div>
+              <div className="bubble-text">Supportive conversations</div>
+            </div>
+            <div className="auth-gradient-bubble">
+              <div className="bubble-icon">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="3" y="11" width="18" height="10" rx="2" />
+                  <circle cx="12" cy="5" r="2" />
+                  <path d="M12 7v4" />
+                  <line x1="8" y1="16" x2="8" y2="16" />
+                  <line x1="16" y1="16" x2="16" y2="16" />
+                </svg>
+              </div>
+              <div className="bubble-text">Companion chatbot</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -76,14 +119,14 @@ export default function Auth() {
             <button
               type="button"
               className={!isLogin ? "active" : ""}
-              onClick={() => setIsLogin(false)}
+              onClick={() => navigate("/signup")}
             >
               Sign up
             </button>
             <button
               type="button"
               className={isLogin ? "active" : ""}
-              onClick={() => setIsLogin(true)}
+              onClick={() => navigate("/login")}
             >
               Log in
             </button>
@@ -175,13 +218,53 @@ export default function Auth() {
                   </svg>
                 </div>
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
+                  className="password-input"
                   placeholder="Choose a secure password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={8}
                 />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                >
+                  {showPassword ? (
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M17.94 17.94A10.77 10.77 0 0 1 12 20C7 20 2.73 16.11 1 12c.73-1.74 1.81-3.31 3.12-4.59" />
+                      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c5 0 9.27 3.89 11 8a18.5 18.5 0 0 1-2.23 3.18" />
+                      <path d="m1 1 22 22" />
+                      <path d="M14.12 14.12A3 3 0 1 1 9.88 9.88" />
+                    </svg>
+                  ) : (
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M2.1 12c1.73-4.11 6-8 9.9-8s8.17 3.89 9.9 8c-1.73 4.11-6 8-9.9 8s-8.17-3.89-9.9-8Z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
               </div>
             </div>
 
@@ -224,7 +307,7 @@ export default function Auth() {
             {isLogin ? "Don't have an account? " : "Already have an account? "}
             <button
               type="button"
-              onClick={() => setIsLogin(!isLogin)}
+              onClick={() => navigate(isLogin ? "/signup" : "/login")}
               className="auth-link"
             >
               {isLogin ? "Create account" : "Log in"}

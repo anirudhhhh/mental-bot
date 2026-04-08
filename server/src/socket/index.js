@@ -79,7 +79,7 @@ function setupSocket(io) {
 
     socket.on("send_message", async (data) => {
       try {
-        const { message, sessionId } = data;
+        const { message, sessionId, personalityPreference } = data;
         const userId = socket.user._id;
 
         if (!message?.trim() || !sessionId) return;
@@ -113,8 +113,22 @@ function setupSocket(io) {
         }
 
         const emotion = detectEmotion(message);
+        const allowedPreferences = new Set([
+          "auto",
+          "compassionate",
+          "motivational",
+          "understanding",
+          "brutal_truth",
+        ]);
+        const preferenceFromClient = allowedPreferences.has(
+          personalityPreference,
+        )
+          ? personalityPreference
+          : null;
         const userPreference =
-          socket.user.preferences?.preferredPersonality || "auto";
+          preferenceFromClient ||
+          socket.user.preferences?.preferredPersonality ||
+          "auto";
         const personalityType = selectPersonality(
           emotion.emotion,
           emotion.intensity,

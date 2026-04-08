@@ -10,6 +10,12 @@ const subspaceSchema = new mongoose.Schema(
       minlength: 3,
       maxlength: 30,
     },
+    slug: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+    },
     description: {
       type: String,
       maxlength: 500,
@@ -30,9 +36,9 @@ const subspaceSchema = new mongoose.Schema(
       type: Number,
       default: 1,
     },
-    icon: {
-      type: String,
-      default: "💭",
+    postCount: {
+      type: Number,
+      default: 0,
     },
     isPrivate: {
       type: Boolean,

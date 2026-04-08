@@ -11,7 +11,7 @@ const STARTER_PROMPTS = [
   "things have been heavy lately",
 ];
 
-const QUICK_MOODS = ["Anxious", "Sad", "Overwhelmed", "Numb", "Okay"];
+const QUICK_MOODS = ["Numb", "Okay", "Sad", "Anxious", "Overwhelmed"];
 
 function generateSessionId() {
   return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -26,6 +26,7 @@ export default function Chat() {
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [activeMood, setActiveMood] = useState(null);
+  const [isGentleToneEnabled, setIsGentleToneEnabled] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -120,23 +121,43 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
+  const ensureSession = () => {
+    let sessionId = activeSessionId;
+    if (sessionId) return sessionId;
+
+    sessionId = generateSessionId();
+    setActiveSessionId(sessionId);
+    setSessions((prev) => {
+      const exists = prev.some((session) => session.id === sessionId);
+      if (exists) return prev;
+      return [
+        {
+          id: sessionId,
+          name: "new session",
+          time: new Date().toISOString(),
+          messageCount: 0,
+        },
+        ...prev,
+      ];
+    });
+
+    return sessionId;
+  };
+
   const handleSend = (e) => {
     e?.preventDefault();
     if (!input.trim() || !isConnected) return;
 
-    // Create new session if none active
-    let sessionId = activeSessionId;
-    if (!sessionId) {
-      sessionId = generateSessionId();
-      setActiveSessionId(sessionId);
-    }
+    const sessionId = ensureSession();
 
     setMessages((prev) => [
       ...prev,
       { role: "user", content: input.trim(), timestamp: new Date() },
     ]);
 
-    sendMessage(input.trim(), sessionId);
+    sendMessage(input.trim(), sessionId, {
+      personalityPreference: isGentleToneEnabled ? "compassionate" : "auto",
+    });
     setInput("");
     if (inputRef.current) {
       inputRef.current.style.height = "auto";
@@ -157,22 +178,40 @@ export default function Chat() {
   };
 
   const useStarter = (text) => {
-    let sessionId = activeSessionId;
-    if (!sessionId) {
-      sessionId = generateSessionId();
-      setActiveSessionId(sessionId);
-    }
+    const sessionId = ensureSession();
 
     setMessages((prev) => [
       ...prev,
       { role: "user", content: text, timestamp: new Date() },
     ]);
-    sendMessage(text, sessionId);
+    sendMessage(text, sessionId, {
+      personalityPreference: isGentleToneEnabled ? "compassionate" : "auto",
+    });
+  };
+
+  const handleMoodCheck = (mood) => {
+    const isSameMood = activeMood === mood;
+    setActiveMood(isSameMood ? null : mood);
+    if (isSameMood) return;
+    useStarter(`i am feeling ${mood.toLowerCase()}`);
   };
 
   const newSession = () => {
     const newId = generateSessionId();
     setActiveSessionId(newId);
+    setSessions((prev) => {
+      const exists = prev.some((session) => session.id === newId);
+      if (exists) return prev;
+      return [
+        {
+          id: newId,
+          name: "new session",
+          time: new Date().toISOString(),
+          messageCount: 0,
+        },
+        ...prev,
+      ];
+    });
     setMessages([]);
     setSidebarOpen(false);
   };
@@ -294,14 +333,6 @@ export default function Chat() {
           ))}
         </div>
 
-        <div className="sidebar-reminder">
-          <div className="reminder-badge">Gentle reminder</div>
-          <p>
-            Share at your own pace. You can post anonymously and find moderated
-            subspaces designed to feel calm and safe.
-          </p>
-        </div>
-
         <div className="sidebar-moods">
           <div className="mood-label">Quick Check-In</div>
           <div className="mood-pills">
@@ -309,7 +340,7 @@ export default function Chat() {
               <button
                 key={mood}
                 className={`mood-pill ${activeMood === mood ? "active" : ""}`}
-                onClick={() => setActiveMood(activeMood === mood ? null : mood)}
+                onClick={() => handleMoodCheck(mood)}
               >
                 {mood}
               </button>
@@ -374,13 +405,28 @@ export default function Chat() {
             </div>
           </div>
           <div className="header-pills">
-            <button className="header-pill premium">
+            <button
+              className={`header-pill premium ${isGentleToneEnabled ? "active" : ""}`}
+              onClick={() => setIsGentleToneEnabled((prev) => !prev)}
+              aria-pressed={isGentleToneEnabled}
+              title="When enabled, Aura uses a gentler compassionate tone"
+            >
               Premium + gentle tone
             </button>
             <button className="header-pill" onClick={() => navigate("/forum")}>
               Forum
             </button>
-            <button className="header-pill" onClick={logout}>
+            <button className="header-pill logout" onClick={logout}>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
               Logout
             </button>
           </div>
@@ -514,9 +560,6 @@ export default function Chat() {
                 <polygon points="22 2 15 22 11 13 2 9 22 2" />
               </svg>
             </button>
-          </div>
-          <div className="input-footer">
-            <span className="model-tag">Aura AI · V2.0</span>
           </div>
         </div>
       </div>

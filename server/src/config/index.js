@@ -7,6 +7,8 @@ const Redis = require("ioredis");
 const config = {
   port: process.env.PORT || 5000,
   nodeEnv: process.env.NODE_ENV || "development",
+  rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
+  rateLimitMax: Number(process.env.RATE_LIMIT_MAX || 1000),
   mongoUri: process.env.MONGODB_URI || "mongodb://localhost:27017/safespace",
   redisUrl: process.env.REDIS_URL || "redis://localhost:6379",
   jwtSecret: process.env.JWT_SECRET,

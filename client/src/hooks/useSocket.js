@@ -50,10 +50,10 @@ export function useSocket(token) {
     };
   }, [token]);
 
-  const sendMessage = useCallback((message, sessionId) => {
+  const sendMessage = useCallback((message, sessionId, options = {}) => {
     const socket = socketRef.current;
     if (socket?.connected) {
-      socket.emit("send_message", { message, sessionId });
+      socket.emit("send_message", { message, sessionId, ...options });
     } else {
       console.error("Socket not connected, cannot send");
     }

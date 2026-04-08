@@ -16,11 +16,11 @@ function ProtectedRoute({ children }) {
     );
   }
 
-  if (!user) return <Navigate to="/auth" replace />;
+  if (!user) return <Navigate to="/login" replace />;
   return children;
 }
 
-function AuthRoute() {
+function AuthRoute({ mode }) {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -32,14 +32,16 @@ function AuthRoute() {
   }
 
   if (user) return <Navigate to="/forum" replace />;
-  return <Auth />;
+  return <Auth mode={mode} />;
 }
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/auth" element={<AuthRoute />} />
+        <Route path="/auth" element={<Navigate to="/signup" replace />} />
+        <Route path="/login" element={<AuthRoute mode="login" />} />
+        <Route path="/signup" element={<AuthRoute mode="signup" />} />
         <Route
           path="/chat"
           element={
@@ -56,8 +58,16 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/forum/s/:subspaceSlug"
+          element={
+            <ProtectedRoute>
+              <Forum />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/" element={<Navigate to="/forum" replace />} />
-        <Route path="*" element={<Navigate to="/forum" replace />} />
+        <Route path="*" element={<Navigate to="/signup" replace />} />
       </Routes>
     </BrowserRouter>
   );
