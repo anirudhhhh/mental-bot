@@ -22,6 +22,7 @@ export default function Chat() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [pendingSessionId, setPendingSessionId] = useState(null);
   const [currentPersona, setCurrentPersona] = useState("compassionate");
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
@@ -30,6 +31,8 @@ export default function Chat() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const activeSessionRef = useRef(null);
+  const pendingSessionRef = useRef(null);
   const { user, token, logout } = useAuth();
   const {
     sendMessage,
@@ -50,11 +53,40 @@ export default function Chat() {
     getSessions();
   }, [isConnected, getSessions]);
 
+  useEffect(() => {
+    activeSessionRef.current = activeSessionId;
+  }, [activeSessionId]);
+
+  useEffect(() => {
+    pendingSessionRef.current = pendingSessionId;
+  }, [pendingSessionId]);
+
+  useEffect(() => {
+    if (!isConnected) {
+      setIsTyping(false);
+      setPendingSessionId(null);
+    }
+  }, [isConnected]);
+
   // Set up socket listeners
   useEffect(() => {
     if (!isConnected) return;
 
     const unsubMessage = onMessage((data) => {
+      const messageSessionId = data.sessionId || pendingSessionRef.current;
+
+      if (messageSessionId && pendingSessionRef.current === messageSessionId) {
+        setPendingSessionId(null);
+      }
+
+      if (
+        messageSessionId &&
+        activeSessionRef.current &&
+        messageSessionId !== activeSessionRef.current
+      ) {
+        return;
+      }
+
       setMessages((prev) => [
         ...prev,
         {
@@ -71,6 +103,23 @@ export default function Chat() {
     });
 
     const unsubTyping = onTyping((data) => {
+      const typingSessionId = data.sessionId || pendingSessionRef.current;
+      if (!typingSessionId) return;
+
+      if (
+        pendingSessionRef.current &&
+        typingSessionId !== pendingSessionRef.current
+      ) {
+        return;
+      }
+
+      if (
+        activeSessionRef.current &&
+        typingSessionId !== activeSessionRef.current
+      ) {
+        return;
+      }
+
       setIsTyping(data.isTyping);
     });
 
@@ -146,9 +195,11 @@ export default function Chat() {
 
   const handleSend = (e) => {
     e?.preventDefault();
-    if (!input.trim() || !isConnected) return;
+    if (!input.trim() || !isConnected || pendingSessionId) return;
 
     const sessionId = ensureSession();
+    setPendingSessionId(sessionId);
+    setIsTyping(true);
 
     setMessages((prev) => [
       ...prev,
@@ -178,7 +229,11 @@ export default function Chat() {
   };
 
   const useStarter = (text) => {
+    if (pendingSessionId) return;
+
     const sessionId = ensureSession();
+    setPendingSessionId(sessionId);
+    setIsTyping(true);
 
     setMessages((prev) => [
       ...prev,
@@ -190,6 +245,8 @@ export default function Chat() {
   };
 
   const handleMoodCheck = (mood) => {
+    if (pendingSessionId) return;
+
     const isSameMood = activeMood === mood;
     setActiveMood(isSameMood ? null : mood);
     if (isSameMood) return;
@@ -213,6 +270,7 @@ export default function Chat() {
       ];
     });
     setMessages([]);
+    setIsTyping(false);
     setSidebarOpen(false);
   };
 
@@ -220,6 +278,7 @@ export default function Chat() {
     if (id === activeSessionId) return;
     setActiveSessionId(id);
     setMessages([]);
+    setIsTyping(false);
     loadSession(id);
     setSidebarOpen(false);
   };
@@ -458,6 +517,7 @@ export default function Chat() {
                     key={prompt}
                     className="starter-btn"
                     onClick={() => useStarter(prompt)}
+                    disabled={Boolean(pendingSessionId)}
                   >
                     {prompt}
                   </button>
@@ -546,7 +606,9 @@ export default function Chat() {
             <button
               className={`send-btn ${input.trim() ? "ready" : ""}`}
               onClick={handleSend}
-              disabled={!input.trim() || !isConnected}
+              disabled={
+                !input.trim() || !isConnected || Boolean(pendingSessionId)
+              }
             >
               <svg
                 viewBox="0 0 24 24"

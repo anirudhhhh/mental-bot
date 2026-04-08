@@ -1,86 +1,89 @@
-# SafeSpace — AI Therapist System
+# SafeSpace
 
-A fully autonomous AI therapy platform with emotion-aware, personality-driven conversations.
+SafeSpace is a mental-wellness platform with an AI companion, anonymous forum spaces, and a calm dark-themed interface.
 
 ## Features
 
-- **Multi-Personality Therapist**: Adapts tone based on detected emotion
-  - Compassionate (sadness, distress)
-  - Motivational (low confidence)
-  - Understanding (venting, confusion)
-  - Brutal Truth (denial, harmful thinking)
-- **Emotion Detection**: Real-time classification of user emotional state
-- **Memory System**: Maintains conversation context and emotion trends
-- **Safety Layer**: Crisis detection with automatic helpline resources
-- **Real-Time Chat**: Socket.io powered instant messaging
+- AI chat with emotion-aware personality switching
+- Anonymous forum posts and comments
+- Subspaces with live post counts
+- Safety-focused messaging for crisis content
+- Socket-based real-time chat updates
 
-## Tech Stack
+## Project structure
 
-- **Backend**: Node.js, Express, Socket.io
-- **Database**: MongoDB (chat history, memory), Redis (sessions)
-- **AI**: Google Gemini API
-- **Frontend**: React
+- `client/` — React frontend
+- `server/` — Express + Socket.io API
+- `vercel.json` — Vercel routing/build configuration
 
-## Quick Start
+## Local development
 
 ### Prerequisites
 
 - Node.js 18+
 - MongoDB
 - Redis
-- Gemini API Key
+- Gemini/OpenRouter API key, if enabled in your backend config
 
-### Installation
+### Backend
 
 ```bash
-# Clone and setup
-git clone <repo-url>
-cd mental-bot
-
-# Backend
 cd server
 cp ../.env.example .env
-# Edit .env with your values
 npm install
 npm run dev
+```
 
-# Frontend (new terminal)
+### Frontend
+
+```bash
 cd client
 npm install
 npm start
 ```
 
-### Environment Variables
+## Environment variables
 
-Copy `.env.example` to `server/.env` and configure:
+Create `server/.env` from `.env.example` and set the required values. Common variables include:
 
-| Variable         | Description               |
-| ---------------- | ------------------------- |
-| `MONGODB_URI`    | MongoDB connection string |
-| `REDIS_URL`      | Redis connection string   |
-| `JWT_SECRET`     | Secret for JWT signing    |
-| `GEMINI_API_KEY` | Google Gemini API key     |
+| Variable               | Description                 |
+| ---------------------- | --------------------------- |
+| `MONGODB_URI`          | MongoDB connection string   |
+| `REDIS_URL`            | Redis connection string     |
+| `JWT_SECRET`           | Secret used for auth tokens |
+| `GEMINI_API_KEY`       | Gemini API key              |
+| `OPENROUTER_API_KEY`   | OpenRouter key, if used     |
+| `RATE_LIMIT_WINDOW_MS` | Rate-limit window in ms     |
+| `RATE_LIMIT_MAX`       | Maximum requests per window |
 
-## API Endpoints
+## Vercel deployment
 
-| Method | Endpoint              | Description        |
-| ------ | --------------------- | ------------------ |
-| POST   | `/api/auth/register`  | Register user      |
-| POST   | `/api/auth/login`     | Login user         |
-| POST   | `/api/chat`           | Send message to AI |
-| GET    | `/api/chat/history`   | Get chat history   |
-| GET    | `/api/emotion/trends` | Get emotion trends |
+This repo is already configured for Vercel:
 
-## Architecture
+- Frontend builds from `client/`
+- Serverless API routes point to `server/src/index.js`
+- SPA routes like `/login`, `/signup`, `/chat`, and `/forum` all resolve to the React app
 
-```
-User Input → Emotion Detection → Personality Selection → Memory Injection → LLM → Response
-```
+### Deploy steps
+
+1. Import the repository into Vercel.
+2. Set the project root to the repository root.
+3. Confirm the build uses the included `vercel.json`.
+4. Add production environment variables in the Vercel dashboard.
+5. Deploy.
+
+### Notes
+
+- Keep secrets out of git; use Vercel env vars and local `.env` files.
+- If you change API routes, update `vercel.json` accordingly.
+
+## API overview
+
+- `/api/auth/register`
+- `/api/auth/login`
+- `/api/chat`
+- `/api/forum/*`
 
 ## Safety
 
-The system includes a safety layer that:
-
-- Detects self-harm and suicide-related content
-- Overrides normal responses with crisis-safe messaging
-- Provides emergency helpline resources
+The backend includes crisis-aware safeguards and resource guidance for self-harm or suicide-related content.

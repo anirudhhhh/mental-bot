@@ -84,7 +84,7 @@ function setupSocket(io) {
 
         if (!message?.trim() || !sessionId) return;
 
-        socket.emit("typing", { isTyping: true });
+        socket.emit("typing", { sessionId, isTyping: true });
 
         const safety = checkSafety(message);
 
@@ -102,8 +102,9 @@ function setupSocket(io) {
             "compassionate",
           );
 
-          socket.emit("typing", { isTyping: false });
+          socket.emit("typing", { sessionId, isTyping: false });
           socket.emit("receive_message", {
+            sessionId,
             reply: safety.response,
             emotion: { emotion: "crisis", intensity: 1 },
             personality: getPersonality("compassionate"),
@@ -170,8 +171,9 @@ function setupSocket(io) {
         // Get updated sessions to refresh sidebar
         const sessions = await getUserSessions(userId);
 
-        socket.emit("typing", { isTyping: false });
+        socket.emit("typing", { sessionId, isTyping: false });
         socket.emit("receive_message", {
+          sessionId,
           reply,
           emotion,
           personality: {
@@ -184,7 +186,7 @@ function setupSocket(io) {
         socket.emit("sessions_list", { sessions });
       } catch (err) {
         console.error("Socket message error:", err);
-        socket.emit("typing", { isTyping: false });
+        socket.emit("typing", { sessionId, isTyping: false });
         socket.emit("error", { message: "Failed to process message" });
       }
     });

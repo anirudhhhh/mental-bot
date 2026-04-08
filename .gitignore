@@ -7,12 +7,22 @@ node_modules/
 .env
 .env.local
 .env.*.local
+server/.env
+server/.env.*
+client/.env
+client/.env.local
+client/.env.*.local
+
+# Vercel
+.vercel/
 
 # Build outputs
 dist/
 build/
 .next/
 out/
+client/build/
+server/dist/
 
 # Logs
 logs/
