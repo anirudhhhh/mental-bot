@@ -4,6 +4,8 @@ import { useAuth } from "../contexts/AuthContext";
 import "./Auth.css";
 
 export default function Auth({ mode = "signup" }) {
+  console.log("API URL:", process.env.REACT_APP_API_URL);
+
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(mode === "login");
   const [email, setEmail] = useState("");

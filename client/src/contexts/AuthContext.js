@@ -4,7 +4,7 @@ import axios from "axios";
 const AuthContext = createContext(null);
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5001/api";
-const authApi = axios.create({ timeout: 25000 });
+const authApi = axios.create();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -23,6 +23,7 @@ export function AuthProvider({ children }) {
 
   const fetchProfile = async () => {
     try {
+      console.log("[auth] GET /auth/profile");
       const res = await authApi.get(`${API_URL}/auth/profile`);
       setUser(res.data.user);
     } catch (err) {
@@ -34,6 +35,7 @@ export function AuthProvider({ children }) {
   };
 
   const login = async (email, password) => {
+    console.log("[auth] POST /auth/login", { email });
     const res = await authApi.post(`${API_URL}/auth/login`, {
       email,
       password,
@@ -45,6 +47,7 @@ export function AuthProvider({ children }) {
   };
 
   const register = async (email, password, displayName, whatBringsYou) => {
+    console.log("[auth] POST /auth/register", { email });
     const res = await authApi.post(`${API_URL}/auth/register`, {
       email,
       password,
