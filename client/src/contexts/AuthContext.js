@@ -11,21 +11,12 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (token) {
-      authApi.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-      fetchProfile();
-    } else {
-      delete authApi.defaults.headers.common["Authorization"];
-      setLoading(false);
-    }
-  }, [token]);
-
   const fetchProfile = async () => {
     try {
       console.log("[auth] GET /auth/profile");
       const res = await authApi.get(`${API_URL}/auth/profile`);
-      setUser(res.data.user);
+      const fetchedUser = res.data.user || res.data;
+      setUser({ ...fetchedUser, id: fetchedUser._id || fetchedUser.id });
     } catch (err) {
       console.error("[auth] profile fetch failed:", err.message);
       logout();
@@ -34,29 +25,52 @@ export function AuthProvider({ children }) {
     }
   };
 
+  useEffect(() => {
+    const initToken = localStorage.getItem("token");
+    if (initToken) {
+      authApi.defaults.headers.common["Authorization"] = `Bearer ${initToken}`;
+      fetchProfile();
+    } else {
+      setLoading(false);
+    }
+    // eslint-disable-next-line
+  }, []);
+
   const login = async (email, password) => {
     console.log("[auth] POST /auth/login", { email });
+    setLoading(true);
     const res = await authApi.post(`${API_URL}/auth/login`, {
       email,
       password,
     });
-    localStorage.setItem("token", res.data.token);
-    setToken(res.data.token);
-    setUser(res.data.user);
+    
+    const { token, user: loggedInUser } = res.data;
+    authApi.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    localStorage.setItem("token", token);
+    setToken(token);
+    setUser({ ...loggedInUser, id: loggedInUser._id || loggedInUser.id });
+    
+    setLoading(false);
     return res.data;
   };
 
   const register = async (email, password, displayName, whatBringsYou) => {
     console.log("[auth] POST /auth/register", { email });
+    setLoading(true);
     const res = await authApi.post(`${API_URL}/auth/register`, {
       email,
       password,
       displayName,
       whatBringsYou,
     });
-    localStorage.setItem("token", res.data.token);
-    setToken(res.data.token);
-    setUser(res.data.user);
+    
+    const { token, user: registeredUser } = res.data;
+    authApi.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    localStorage.setItem("token", token);
+    setToken(token);
+    setUser({ ...registeredUser, id: registeredUser._id || registeredUser.id });
+    
+    setLoading(false);
     return res.data;
   };
 
