@@ -1267,6 +1267,40 @@
   border-width: 0.5px;
 }
 
+.subspace-picker-search {
+  padding: 4px;
+  position: sticky;
+  top: 0;
+  background: var(--bg-elevated);
+  z-index: 2;
+  border-bottom: 1px solid var(--border-secondary);
+  margin-bottom: 4px;
+}
+
+.subspace-picker-search input {
+  width: 100%;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.subspace-picker-search input:focus {
+  border-color: var(--accent-gold-dim);
+  background: var(--bg-elevated);
+}
+
+.picker-opt-prefix {
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-right: 6px;
+  opacity: 0.6;
+}
+
 .create-post-modal input,
 .create-post-modal textarea,
 .create-post-modal select,
