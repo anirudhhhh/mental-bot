@@ -14,6 +14,12 @@ const config = {
   jwtSecret: process.env.JWT_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
   openRouterApiKey: process.env.OPENROUTER_API_KEY,
+  openRouterModel: process.env.OPENROUTER_MODEL || "minimax/minimax-m2.5:free",
+  openRouterTimeoutMs: Number(process.env.OPENROUTER_TIMEOUT_MS || 20000),
+  openRouterRetryCount: Number(process.env.OPENROUTER_RETRY_COUNT || 2),
+  openRouterRetryBaseDelayMs: Number(
+    process.env.OPENROUTER_RETRY_BASE_DELAY_MS || 1200,
+  ),
   clientUrl: process.env.CLIENT_URL || "http://localhost:3000",
   corsOrigin:
     process.env.CORS_ORIGIN ||

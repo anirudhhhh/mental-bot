@@ -13,9 +13,9 @@ services:
       - key: PORT
         value: 10000
       - key: CORS_ORIGIN
-        sync: false
+        value: https://safespace-client.onrender.com
       - key: CLIENT_URL
-        sync: false
+        value: https://safespace-client.onrender.com
       - key: MONGODB_URI
         sync: false
       - key: REDIS_URL
@@ -26,6 +26,14 @@ services:
         value: 7d
       - key: OPENROUTER_API_KEY
         sync: false
+      - key: OPENROUTER_MODEL
+        value: minimax/minimax-m2.5:free
+      - key: OPENROUTER_TIMEOUT_MS
+        value: 20000
+      - key: OPENROUTER_RETRY_COUNT
+        value: 2
+      - key: OPENROUTER_RETRY_BASE_DELAY_MS
+        value: 1200
       - key: RATE_LIMIT_WINDOW_MS
         value: 900000
       - key: RATE_LIMIT_MAX
@@ -41,6 +49,6 @@ services:
     autoDeploy: true
     envVars:
       - key: REACT_APP_API_URL
-        sync: false
+        value: https://safespace-server.onrender.com/api
       - key: REACT_APP_SOCKET_URL
-        sync: false
+        value: https://safespace-server.onrender.com
