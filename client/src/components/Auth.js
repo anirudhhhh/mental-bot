@@ -150,14 +150,14 @@ export default function Auth({ mode = "signup" }) {
             <button
               type="button"
               className={!isLogin ? "active" : ""}
-              onClick={() => navigate("/signup")}
+              onClick={() => setIsLogin(false)}
             >
               Sign up
             </button>
             <button
               type="button"
               className={isLogin ? "active" : ""}
-              onClick={() => navigate("/login")}
+              onClick={() => setIsLogin(true)}
             >
               Log in
             </button>
@@ -334,7 +334,7 @@ export default function Auth({ mode = "signup" }) {
             {isLogin ? "Don't have an account? " : "Already have an account? "}
             <button
               type="button"
-              onClick={() => navigate(isLogin ? "/signup" : "/login")}
+              onClick={() => setIsLogin(!isLogin)}
               className="auth-link"
             >
               {isLogin ? "Create account" : "Log in"}
