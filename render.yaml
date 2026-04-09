@@ -3,7 +3,7 @@ services:
     name: safespace-server
     env: node
     rootDir: server
-    plan: starter
+    plan: free
     buildCommand: npm install
     startCommand: npm start
     autoDeploy: true
@@ -35,7 +35,7 @@ services:
     name: safespace-client
     env: node
     rootDir: client
-    plan: starter
+    plan: free
     buildCommand: npm install && npm run build
     startCommand: npx serve -s build -l 3000
     autoDeploy: true
