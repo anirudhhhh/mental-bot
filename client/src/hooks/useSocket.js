@@ -17,10 +17,11 @@ export function useSocket(token) {
 
     const socket = io(SOCKET_URL, {
       auth: { token },
-      transports: ["polling", "websocket"],
+      transports: ["websocket"],
       reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
+      reconnectionDelay: 500,
+      reconnectionDelayMax: 3000,
+      timeout: 5000,
     });
 
     socket.on("connect", () => {

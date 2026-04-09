@@ -199,7 +199,7 @@ export default function Chat() {
 
     const sessionId = ensureSession();
     setPendingSessionId(sessionId);
-    setIsTyping(true);
+    // setIsTyping(true);
 
     setMessages((prev) => [
       ...prev,
@@ -233,7 +233,7 @@ export default function Chat() {
 
     const sessionId = ensureSession();
     setPendingSessionId(sessionId);
-    setIsTyping(true);
+    // setIsTyping(true);
 
     setMessages((prev) => [
       ...prev,
