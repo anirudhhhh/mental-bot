@@ -138,7 +138,8 @@ function setupSocket(io) {
         const personality = getPersonality(personalityType);
 
         const memory = await getMemoryContext(userId, sessionId);
-        await addMessage(
+        // store user message (non-blocking)
+        const addUserMsgPromise = addMessage(
           userId,
           sessionId,
           "user",
@@ -147,31 +148,17 @@ function setupSocket(io) {
           null,
         );
 
-        let reply;
-        if (safety.riskLevel === "moderate") {
-          reply = safety.response;
-        } else {
-          reply = await generateWithFallback(
-            message,
-            personalityType,
-            memory,
-            memory.conversationHistory,
-          );
-        }
-
-        await addMessage(
-          userId,
-          sessionId,
-          "assistant",
-          reply,
-          null,
+        // generate reply (main delay)
+        const reply = await generateWithFallback(
+          message,
           personalityType,
+          memory,
+          memory.conversationHistory,
         );
 
-        // Get updated sessions to refresh sidebar
-        const sessions = await getUserSessions(userId);
-
+        // 🔥 IMMEDIATE RESPONSE (don't wait DB)
         socket.emit("typing", { sessionId, isTyping: false });
+
         socket.emit("receive_message", {
           sessionId,
           reply,
@@ -183,10 +170,33 @@ function setupSocket(io) {
           },
           isCrisis: false,
         });
-        socket.emit("sessions_list", { sessions });
+
+        // background DB writes
+        await Promise.all([
+          addUserMsgPromise,
+          addMessage(
+            userId,
+            sessionId,
+            "assistant",
+            reply,
+            null,
+            personalityType,
+          ),
+        ]);
+
+        // fetch sessions async (non-blocking)
+        getUserSessions(userId).then((sessions) => {
+          socket.emit("sessions_list", { sessions });
+        });
       } catch (err) {
         console.error("Socket message error:", err);
-        socket.emit("typing", { sessionId, isTyping: false });
+
+        const { sessionId } = data || {}; // ← FIX
+
+        if (sessionId) {
+          socket.emit("typing", { sessionId, isTyping: false });
+        }
+
         socket.emit("error", { message: "Failed to process message" });
       }
     });
