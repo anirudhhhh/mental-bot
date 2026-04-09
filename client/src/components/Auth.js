@@ -67,6 +67,7 @@ export default function Auth({ mode = "signup" }) {
       } else {
         await register(email, password, displayName || firstName, motivation);
       }
+      navigate("/forum");
     } catch (err) {
       console.error("[auth] submit failed:", err.message);
       setError(err.response?.data?.error || "Something went wrong");

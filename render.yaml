@@ -9,6 +9,10 @@ services:
     startCommand: npm start
     autoDeploy: true
     envVars:
+      - key: CORS_ORIGIN
+        value: https://safespace-client-qtia.onrender.com
+      - key: CLIENT_URL
+        value: https://safespace-client-qtia.onrender.com
       - key: NODE_ENV
         value: production
       - key: CORS_ORIGIN
@@ -44,11 +48,11 @@ services:
     region: singapore # 👈 ADD THIS
     rootDir: client
     plan: free
-    buildCommand: REACT_APP_API_URL=https://safespace-server.onrender.com/api REACT_APP_SOCKET_URL=https://safespace-server.onrender.com npm install && npm run build
+    buildCommand: REACT_APP_API_URL=https://safespace-server-x3um.onrender.com/api REACT_APP_SOCKET_URL=https://safespace-server-x3um.onrender.com npm install && npm run build
     startCommand: npm run serve
     autoDeploy: true
     envVars:
       - key: REACT_APP_API_URL
-        value: https://safespace-server.onrender.com/api
+        value: https://safespace-server-x3um.onrender.com/api
       - key: REACT_APP_SOCKET_URL
         value: https://safespace-server.onrender.com
