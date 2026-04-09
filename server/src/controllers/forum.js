@@ -294,6 +294,42 @@ async function getFeed(req, res) {
   }
 }
 
+async function getUserSubspaces(req, res) {
+  try {
+    const userId = req.user._id;
+
+    const [created, userPosts] = await Promise.all([
+      Subspace.find({ createdBy: userId })
+        .select("name slug memberCount description createdBy postCount")
+        .lean(),
+
+      Post.find({ author: userId }).distinct("subspace"),
+    ]);
+
+    const postedIn = await Subspace.find({
+      _id: { $in: userPosts },
+    })
+      .select("name slug memberCount description createdBy postCount")
+      .lean();
+
+    const map = new Map();
+
+    [...created, ...postedIn].forEach((s) => {
+      if (!map.has(s._id.toString())) {
+        map.set(s._id.toString(), {
+          ...s,
+          isOwner: s.createdBy?.toString() === userId.toString(),
+        });
+      }
+    });
+
+    res.json([...map.values()]);
+  } catch (err) {
+    console.error("getUserSubspaces error:", err);
+    res.status(500).json({ error: "Failed to get user subspaces" });
+  }
+}
+
 module.exports = {
   createSubspace,
   getSubspaces,
