@@ -195,11 +195,16 @@
   gap: 8px;
   padding: 12px 16px;
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: all var(--transition-fast);
 }
 
 .search-result-item:hover {
   background: var(--bg-tertiary);
+  padding-left: 20px;
+}
+
+.search-result-item:hover .result-prefix {
+  color: var(--accent-gold);
 }
 
 .result-prefix {
@@ -251,6 +256,11 @@
 
 .subspace-item:hover {
   background: var(--bg-tertiary);
+  padding-left: 14px;
+}
+
+.subspace-item:hover .subspace-prefix {
+  color: var(--accent-gold);
 }
 
 .subspace-item.active {
@@ -784,8 +794,11 @@
 
 .post-card:hover {
   border-color: var(--border-secondary);
+  border-left-color: var(--accent-gold-dim);
   transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  box-shadow:
+    var(--shadow-md),
+    inset 2px 0 0 var(--accent-gold-dim);
 }
 
 .post-card.detail {
@@ -815,12 +828,14 @@
   font-size: 12px;
   font-weight: 600;
   text-decoration: none;
+  cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .subspace-tag:hover {
-  background: var(--accent-gold-soft);
+  background: rgba(212, 168, 68, 0.2);
   color: var(--accent-gold);
+  transform: translateY(-1px);
 }
 
 .post-meta {
@@ -885,6 +900,11 @@
 .action-btn:hover {
   background: var(--bg-tertiary);
   color: var(--accent-gold);
+  transform: translateY(-1px);
+}
+
+.action-btn:active {
+  transform: translateY(0);
 }
 
 .action-btn svg {
@@ -903,6 +923,7 @@
 
 .delete-btn:hover {
   color: var(--error);
+  background: rgba(239, 68, 68, 0.08);
 }
 
 .comment-count {
@@ -1048,6 +1069,34 @@
 .comment-meta span {
   color: var(--text-muted);
   font-size: 13px;
+}
+
+.comment-delete-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-subtle);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  opacity: 0;
+  transition: all var(--transition-fast);
+}
+
+.comment:hover .comment-delete-btn {
+  opacity: 1;
+}
+
+.comment-delete-btn:hover {
+  color: var(--error);
+  background: rgba(192, 96, 96, 0.08);
+}
+
+.comment-delete-btn svg {
+  width: 14px;
+  height: 14px;
 }
 
 .comment p {

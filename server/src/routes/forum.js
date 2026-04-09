@@ -14,6 +14,7 @@ const {
   upvotePost,
   deletePost,
   createComment,
+  deleteComment,
   getComments,
   getFeed,
 } = require("../controllers/forum");
@@ -38,5 +39,6 @@ router.post("/s/:name/posts", createPost);
 router.post("/post/:postId/upvote", upvotePost);
 router.delete("/post/:postId", deletePost);
 router.post("/post/:postId/comments", createComment);
+router.delete("/post/:postId/comments/:commentId", deleteComment);
 
 module.exports = router;

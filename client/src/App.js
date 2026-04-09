@@ -66,6 +66,14 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/forum/s/:subspaceSlug/:postId"
+          element={
+            <ProtectedRoute>
+              <Forum />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/" element={<Navigate to="/forum" replace />} />
         <Route path="*" element={<Navigate to="/signup" replace />} />
       </Routes>

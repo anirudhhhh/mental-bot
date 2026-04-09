@@ -20,7 +20,11 @@ function setupSocket(io) {
       if (!token) return next(new Error("Authentication required"));
 
       const decoded = jwt.verify(token, config.jwtSecret);
-      const user = await User.findById(decoded.id);
+
+      // Lean select — only the fields the socket handler actually reads
+      const user = await User.findById(decoded.id)
+        .select("_id displayName preferences")
+        .lean();
       if (!user) return next(new Error("User not found"));
 
       socket.user = user;

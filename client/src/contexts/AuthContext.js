@@ -13,7 +13,6 @@ export function AuthProvider({ children }) {
 
   const fetchProfile = async () => {
     try {
-      console.log("[auth] GET /auth/profile");
       const res = await authApi.get(`${API_URL}/auth/profile`);
       const fetchedUser = res.data.user || res.data;
       setUser({ ...fetchedUser, id: fetchedUser._id || fetchedUser.id });
@@ -36,7 +35,6 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (email, password) => {
-    console.log("[auth] POST /auth/login", { email });
     setLoading(true);
     const res = await authApi.post(`${API_URL}/auth/login`, {
       email,
@@ -54,7 +52,6 @@ export function AuthProvider({ children }) {
   };
 
   const register = async (email, password, displayName, whatBringsYou) => {
-    console.log("[auth] POST /auth/register", { email });
     setLoading(true);
     const res = await authApi.post(`${API_URL}/auth/register`, {
       email,

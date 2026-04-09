@@ -82,6 +82,8 @@
   background: var(--bg4);
   border-color: var(--primary-dim);
   color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(212, 168, 68, 0.1);
 }
 
 .new-chat-btn svg {
@@ -112,12 +114,17 @@
   padding: 10px 12px;
   border-radius: 4px;
   cursor: pointer;
-  transition: background 150ms ease;
+  transition: all 150ms ease;
   margin-bottom: 2px;
 }
 
 .chat-item:hover {
   background: var(--bg3);
+  padding-left: 14px;
+}
+
+.chat-item:hover .chat-item-icon {
+  color: var(--primary);
 }
 
 .chat-item.active {
@@ -259,6 +266,7 @@
 .mood-pill:hover {
   border-color: var(--primary-dim);
   color: var(--primary);
+  transform: translateY(-1px);
 }
 
 .mood-pill.active {
@@ -421,6 +429,7 @@
   background: var(--bg3);
   border-color: var(--primary-dim);
   color: var(--primary);
+  transform: translateY(-1px);
 }
 
 .header-pill.premium {
@@ -540,6 +549,12 @@
   border-color: var(--primary-dim);
   color: var(--primary);
   background: var(--bg4);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.starter-btn:active {
+  transform: translateY(0);
 }
 
 /* Messages */
