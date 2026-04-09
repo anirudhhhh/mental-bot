@@ -13,9 +13,10 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (token) {
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      authApi.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       fetchProfile();
     } else {
+      delete authApi.defaults.headers.common["Authorization"];
       setLoading(false);
     }
   }, [token]);
@@ -60,7 +61,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("token");
     setToken(null);
     setUser(null);
-    delete axios.defaults.headers.common["Authorization"];
+    delete authApi.defaults.headers.common["Authorization"];
   };
 
   return (

@@ -31,27 +31,32 @@ export default function Auth({ mode = "signup" }) {
     });
 
     if (!email.trim()) {
+      console.warn("[auth] blocked: missing email");
       setError("Email is required");
       return;
     }
 
     if (!password.trim()) {
+      console.warn("[auth] blocked: missing password");
       setError("Password is required");
       return;
     }
 
     if (!isLogin) {
       if (!firstName.trim() && !displayName.trim()) {
+        console.warn("[auth] blocked: missing first/display name");
         setError("First name or display name is required");
         return;
       }
 
       if (!agreeToTerms) {
+        console.warn("[auth] blocked: terms checkbox not checked");
         setError("Please agree to the community guidelines");
         return;
       }
     }
 
+    console.log(`[auth] request starting: ${isLogin ? "login" : "signup"}`);
     setLoading(true);
 
     try {
