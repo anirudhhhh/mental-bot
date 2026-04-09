@@ -70,13 +70,22 @@ export default function Forum() {
   };
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [sortBy]);
+
+  useEffect(() => {
     fetchUserSubspaces();
     if (postId) {
+      setView("post");
       fetchPost(postId);
     } else if (subspaceSlug) {
-      fetchSubspacePosts(subspaceSlug, "hot");
+      setView("subspace");
+      setCurrentSubspace(subspaceSlug);
+      setSortBy("hot"); // important
     } else {
-      fetchFeed("hot");
+      setView("feed");
+      setCurrentSubspace(null);
+      setSortBy("hot"); // important
     }
   }, [subspaceSlug, postId]);
 
@@ -98,19 +107,26 @@ export default function Forum() {
     if (view === "feed") fetchFeed(sortBy);
     if (view === "subspace" && currentSubspace)
       fetchSubspacePosts(currentSubspace, sortBy);
-  }, [sortBy]);
+  }, [sortBy, view, currentSubspace]);
 
   useEffect(() => {
+    fetchUserSubspaces();
     if (postId) {
       setView("post");
-      if (subspaceSlug) setCurrentSubspace(subspaceSlug);
-    } else if (subspaceSlug) {
+      fetchPost(postId);
+      return;
+    }
+    if (subspaceSlug) {
       setView("subspace");
       setCurrentSubspace(subspaceSlug);
     } else {
       setView("feed");
       setCurrentSubspace(null);
     }
+
+    // ONLY reset sort if not already hot
+    setSortBy((prev) => (prev === "hot" ? prev : "hot"));
+
   }, [subspaceSlug, postId]);
 
   useEffect(() => {
@@ -133,7 +149,6 @@ export default function Forum() {
 
   const fetchFeed = async (sort = sortBy) => {
     try {
-      setView("feed");
       setCurrentSubspace(null);
       setActiveSubspaceData(null);
       setCurrentPost(null);
@@ -620,26 +635,32 @@ export default function Forum() {
               : `s/${currentPost?.subspace?.name || currentSubspaceData?.name || currentSubspace || ""}`}
           </h1>
 
-          <div className="header-pills">
-            <button
-              className={`header-pill ${sortBy === "hot" ? "active" : ""}`}
-              onClick={() => setSortBy("hot")}
-            >
-              Hot
-            </button>
-            <button
-              className={`header-pill ${sortBy === "new" ? "active" : ""}`}
-              onClick={() => setSortBy("new")}
-            >
-              New
-            </button>
-            <button
-              className={`header-pill ${sortBy === "top" ? "active" : ""}`}
-              onClick={() => setSortBy("top")}
-            >
-              Top
-            </button>
-          </div>
+          {view !== "feed" && (
+            <div className="header-pills">
+              <button
+                className={`header-pill ${sortBy === "hot" ? "active" : ""}`}
+                onClick={() => setSortBy("hot")}
+              >
+                Hot
+              </button>
+
+              <button
+                className={`header-pill ${sortBy === "new" ? "active" : ""}`}
+                onClick={() => setSortBy("new")}
+              >
+                New
+              </button>
+
+              <button
+                className="header-pill"
+                onClick={() => {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+              >
+                Top
+              </button>
+            </div>
+          )}
 
           <div className="header-actions-right">
             <button

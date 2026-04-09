@@ -377,11 +377,7 @@ async function getComments(req, res) {
 async function getFeed(req, res) {
   try {
     const sort =
-      req.query.sort === "new"
-        ? { createdAt: -1 }
-        : req.query.sort === "top"
-          ? { upvoteCount: -1 }
-          : { createdAt: -1 }; // hot fallback
+      req.query.sort === "new" ? { createdAt: -1 } : { upvoteCount: -1 };
 
     const posts = await Post.find()
       .sort(sort)
