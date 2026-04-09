@@ -31,32 +31,15 @@ services:
       - key: RATE_LIMIT_MAX
         value: 1000
 
-  - type: static
+  - type: web
     name: safespace-client
+    env: static
     rootDir: client
     plan: starter
     buildCommand: npm install && npm run build
-    staticPublishPath: build
+    startCommand: npx serve -s build -l 3000
+    staticSiteRoot: build
     autoDeploy: true
-    routes:
-      - type: rewrite
-        source: /login
-        destination: /index.html
-      - type: rewrite
-        source: /signup
-        destination: /index.html
-      - type: rewrite
-        source: /auth
-        destination: /index.html
-      - type: rewrite
-        source: /chat
-        destination: /index.html
-      - type: rewrite
-        source: /forum
-        destination: /index.html
-      - type: rewrite
-        source: /forum/*
-        destination: /index.html
     envVars:
       - key: REACT_APP_API_URL
         sync: false
