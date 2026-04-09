@@ -1,6 +1,4 @@
 const express = require("express");
-const forumController = require("../controllers/forum");
-console.log(forumController);
 const { protect } = require("../middleware/auth");
 const {
   createSubspace,

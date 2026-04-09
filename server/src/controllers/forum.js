@@ -9,7 +9,7 @@ async function findSubspaceByIdentifier(rawIdentifier) {
 
   return Subspace.findOne({
     $or: [{ slug: identifier }, { name: normalizedName }],
-  }).lean(); // 🔥 important
+  }).lean();
 }
 
 // ================= SUBSPACES =================
@@ -65,40 +65,75 @@ async function getSubspaces(req, res) {
   }
 }
 
-// 🔥 REMOVED syncSubspacePostCount (huge perf win)
-async function getUserSubspaces(req, res) {
+async function searchSubspaces(req, res) {
   try {
-    const userId = req.user._id;
+    const { q } = req.query;
+    if (!q || q.length < 2) return res.json([]);
 
-    const [created, userPosts] = await Promise.all([
-      Subspace.find({ createdBy: userId })
-        .select("name slug memberCount description createdBy postCount")
-        .lean(),
-
-      Post.find({ author: userId }).distinct("subspace"),
-    ]);
-
-    const postedIn = await Subspace.find({
-      _id: { $in: userPosts },
+    const subspaces = await Subspace.find({
+      name: { $regex: q, $options: "i" },
+      isPrivate: false,
     })
-      .select("name slug memberCount description createdBy postCount")
+      .limit(10)
+      .select("name slug memberCount postCount")
       .lean();
 
-    const map = new Map();
+    res.json(subspaces);
+  } catch {
+    res.status(500).json({ error: "Failed to search" });
+  }
+}
 
-    [...created, ...postedIn].forEach((s) => {
-      if (!map.has(s._id.toString())) {
-        map.set(s._id.toString(), {
-          ...s,
-          isOwner: s.createdBy?.toString() === userId.toString(),
-        });
-      }
+async function getSubspace(req, res) {
+  try {
+    const subspace = await findSubspaceByIdentifier(req.params.name);
+    if (!subspace) return res.status(404).json({ error: "Not found" });
+
+    res.json(subspace);
+  } catch {
+    res.status(500).json({ error: "Failed" });
+  }
+}
+
+async function deleteSubspace(req, res) {
+  try {
+    const subspace = await Subspace.findOne({
+      $or: [{ slug: req.params.name }, { name: req.params.name }],
     });
 
-    res.json([...map.values()]);
-  } catch (err) {
-    console.error("getUserSubspaces error:", err);
-    res.status(500).json({ error: "Failed to get user subspaces" });
+    if (!subspace) return res.status(404).json({ error: "Not found" });
+
+    if (!subspace.createdBy.equals(req.user._id)) {
+      return res.status(403).json({ error: "Not allowed" });
+    }
+
+    await Post.deleteMany({ subspace: subspace._id });
+    await Comment.deleteMany({ subspace: subspace._id });
+    await Subspace.deleteOne({ _id: subspace._id });
+
+    res.json({ deleted: true });
+  } catch {
+    res.status(500).json({ error: "Failed" });
+  }
+}
+
+async function joinSubspace(req, res) {
+  try {
+    const subspace = await Subspace.findOne({
+      $or: [{ slug: req.params.name }, { name: req.params.name }],
+    });
+
+    if (!subspace) return res.status(404).json({ error: "Not found" });
+
+    if (!subspace.members.includes(req.user._id)) {
+      subspace.members.push(req.user._id);
+      subspace.memberCount = subspace.members.length;
+      await subspace.save();
+    }
+
+    res.json({ joined: true });
+  } catch {
+    res.status(500).json({ error: "Failed" });
   }
 }
 
@@ -119,7 +154,6 @@ async function createPost(req, res) {
       tags: tags || [],
     });
 
-    // 🔥 atomic increment (no save)
     Subspace.updateOne({ _id: subspace._id }, { $inc: { postCount: 1 } }).catch(
       () => {},
     );
@@ -156,81 +190,107 @@ async function getPosts(req, res) {
 
     res.json(sanitized);
   } catch {
-    res.status(500).json({ error: "Failed to get posts" });
+    res.status(500).json({ error: "Failed" });
+  }
+}
+
+async function getPost(req, res) {
+  try {
+    const post = await Post.findById(req.params.postId)
+      .populate("author", "displayName")
+      .populate("subspace", "name slug")
+      .lean();
+
+    if (!post) return res.status(404).json({ error: "Not found" });
+
+    res.json(post);
+  } catch {
+    res.status(500).json({ error: "Failed" });
+  }
+}
+
+async function upvotePost(req, res) {
+  try {
+    const post = await Post.findById(req.params.postId);
+    if (!post) return res.status(404).json({ error: "Not found" });
+
+    const userId = req.user._id;
+    const has = post.upvotes.includes(userId);
+
+    post.upvotes = has
+      ? post.upvotes.filter((id) => !id.equals(userId))
+      : [...post.upvotes, userId];
+
+    post.upvoteCount = post.upvotes.length;
+    await post.save();
+
+    res.json({ upvoted: !has });
+  } catch {
+    res.status(500).json({ error: "Failed" });
+  }
+}
+
+async function deletePost(req, res) {
+  try {
+    const post = await Post.findById(req.params.postId);
+    if (!post) return res.status(404).json({ error: "Not found" });
+
+    if (!post.author.equals(req.user._id)) {
+      return res.status(403).json({ error: "Not allowed" });
+    }
+
+    await Comment.deleteMany({ post: post._id });
+    await Post.deleteOne({ _id: post._id });
+
+    res.json({ deleted: true });
+  } catch {
+    res.status(500).json({ error: "Failed" });
   }
 }
 
 // ================= COMMENTS =================
 async function createComment(req, res) {
   try {
-    const { content, isAnonymous, parentComment } = req.body;
-
-    const post = await Post.findById(req.params.postId).select("_id");
-    if (!post) return res.status(404).json({ error: "Post not found" });
+    const { content, isAnonymous } = req.body;
 
     const comment = await Comment.create({
       content,
       author: req.user._id,
-      post: post._id,
-      parentComment: parentComment || null,
+      post: req.params.postId,
       isAnonymous: isAnonymous !== false,
     });
 
-    // 🔥 atomic increment
-    Post.updateOne({ _id: post._id }, { $inc: { commentCount: 1 } }).catch(
-      () => {},
-    );
-
     res.status(201).json(comment);
   } catch {
-    res.status(500).json({ error: "Failed to create comment" });
+    res.status(500).json({ error: "Failed" });
   }
 }
 
 async function getComments(req, res) {
   try {
     const comments = await Comment.find({ post: req.params.postId })
-      .sort({ createdAt: 1 })
       .populate("author", "displayName")
       .lean();
 
-    const sanitized = comments.map((c) => ({
-      ...c,
-      author: c.isAnonymous ? { displayName: "Anonymous" } : c.author,
-    }));
-
-    res.json(sanitized);
+    res.json(comments);
   } catch {
-    res.status(500).json({ error: "Failed to get comments" });
+    res.status(500).json({ error: "Failed" });
   }
 }
 
 // ================= FEED =================
 async function getFeed(req, res) {
   try {
-    const sort =
-      req.query.sort === "new" ? { createdAt: -1 } : { upvoteCount: -1 };
-
     const posts = await Post.find()
-      .sort(sort)
+      .sort({ createdAt: -1 })
       .limit(50)
       .populate("author", "displayName")
       .populate("subspace", "name slug")
       .lean();
 
-    const userId = req.user?._id?.toString();
-
-    const sanitized = posts.map((p) => ({
-      ...p,
-      author: p.isAnonymous ? { displayName: "Anonymous" } : p.author,
-      hasUpvoted: userId
-        ? p.upvotes?.some((id) => id.toString() === userId)
-        : false,
-    }));
-
-    res.json(sanitized);
+    res.json(posts);
   } catch {
-    res.status(500).json({ error: "Failed to get feed" });
+    res.status(500).json({ error: "Failed" });
   }
 }
 
@@ -238,8 +298,15 @@ module.exports = {
   createSubspace,
   getSubspaces,
   getUserSubspaces,
+  searchSubspaces,
+  deleteSubspace,
+  getSubspace,
+  joinSubspace,
   createPost,
   getPosts,
+  getPost,
+  upvotePost,
+  deletePost,
   createComment,
   getComments,
   getFeed,
