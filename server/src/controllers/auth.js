@@ -1,9 +1,19 @@
 const User = require("../models/User");
 const { signToken } = require("../middleware/auth");
 
+function logAuthTiming(action, startTime, email) {
+  const durationMs = Date.now() - startTime;
+  console.log(
+    `[auth:${action}] ${email || "unknown"} completed in ${durationMs}ms`,
+  );
+}
+
 async function register(req, res) {
+  const startTime = Date.now();
   try {
     const { email, password, displayName, whatBringsYou } = req.body;
+
+    console.log(`[auth:register] start ${email || "unknown"}`);
 
     if (!email || !password) {
       return res.status(400).json({ error: "Email and password required" });
@@ -32,14 +42,20 @@ async function register(req, res) {
         whatBringsYou: user.whatBringsYou,
       },
     });
+
+    logAuthTiming("register", startTime, email);
   } catch (err) {
+    console.error("[auth:register] error", err.message);
     res.status(500).json({ error: "Registration failed" });
   }
 }
 
 async function login(req, res) {
+  const startTime = Date.now();
   try {
     const { email, password } = req.body;
+
+    console.log(`[auth:login] start ${email || "unknown"}`);
 
     if (!email || !password) {
       return res.status(400).json({ error: "Email and password required" });
@@ -66,7 +82,10 @@ async function login(req, res) {
         whatBringsYou: user.whatBringsYou,
       },
     });
+
+    logAuthTiming("login", startTime, email);
   } catch (err) {
+    console.error("[auth:login] error", err.message);
     res.status(500).json({ error: "Login failed" });
   }
 }

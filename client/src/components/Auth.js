@@ -24,20 +24,44 @@ export default function Auth({ mode = "signup" }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    console.log(`[auth] submit ${isLogin ? "login" : "signup"}`, {
+      email,
+      hasPassword: Boolean(password),
+    });
+
+    if (!email.trim()) {
+      setError("Email is required");
+      return;
+    }
+
+    if (!password.trim()) {
+      setError("Password is required");
+      return;
+    }
+
+    if (!isLogin) {
+      if (!firstName.trim() && !displayName.trim()) {
+        setError("First name or display name is required");
+        return;
+      }
+
+      if (!agreeToTerms) {
+        setError("Please agree to the community guidelines");
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
       if (isLogin) {
         await login(email, password);
       } else {
-        if (!agreeToTerms) {
-          setError("Please agree to the community guidelines");
-          setLoading(false);
-          return;
-        }
         await register(email, password, displayName || firstName, motivation);
       }
     } catch (err) {
+      console.error("[auth] submit failed:", err.message);
       setError(err.response?.data?.error || "Something went wrong");
     } finally {
       setLoading(false);
@@ -141,7 +165,7 @@ export default function Auth({ mode = "signup" }) {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="auth-form">
+          <form onSubmit={handleSubmit} className="auth-form" noValidate>
             {!isLogin && (
               <div className="form-row">
                 <div className="form-group">
@@ -162,7 +186,6 @@ export default function Auth({ mode = "signup" }) {
                       placeholder="Sarah"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
-                      required
                     />
                   </div>
                 </div>
@@ -199,7 +222,6 @@ export default function Auth({ mode = "signup" }) {
                   placeholder="sarah@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  required
                 />
               </div>
             </div>
@@ -223,7 +245,6 @@ export default function Auth({ mode = "signup" }) {
                   placeholder="Choose a secure password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
                   minLength={8}
                 />
                 <button
@@ -287,7 +308,6 @@ export default function Auth({ mode = "signup" }) {
                   id="terms"
                   checked={agreeToTerms}
                   onChange={(e) => setAgreeToTerms(e.target.checked)}
-                  required
                 />
                 <label htmlFor="terms">
                   I agree to community guidelines and understand this platform
