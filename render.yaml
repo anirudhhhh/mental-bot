@@ -33,12 +33,11 @@ services:
 
   - type: web
     name: safespace-client
-    env: static
+    env: node
     rootDir: client
     plan: starter
     buildCommand: npm install && npm run build
     startCommand: npx serve -s build -l 3000
-    staticSiteRoot: build
     autoDeploy: true
     envVars:
       - key: REACT_APP_API_URL
