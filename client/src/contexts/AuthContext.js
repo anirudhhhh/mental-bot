@@ -35,7 +35,6 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (email, password) => {
-    setLoading(true);
     const res = await authApi.post(`${API_URL}/auth/login`, {
       email,
       password,
@@ -47,12 +46,10 @@ export function AuthProvider({ children }) {
     setToken(token);
     setUser({ ...loggedInUser, id: loggedInUser._id || loggedInUser.id });
     
-    setLoading(false);
     return res.data;
   };
 
   const register = async (email, password, displayName, whatBringsYou) => {
-    setLoading(true);
     const res = await authApi.post(`${API_URL}/auth/register`, {
       email,
       password,
@@ -66,7 +63,6 @@ export function AuthProvider({ children }) {
     setToken(token);
     setUser({ ...registeredUser, id: registeredUser._id || registeredUser.id });
     
-    setLoading(false);
     return res.data;
   };
 

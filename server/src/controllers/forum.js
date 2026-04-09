@@ -232,6 +232,7 @@ async function getPosts(req, res) {
       .sort(sort)
       .limit(50)
       .populate("author", "displayName")
+      .populate("subspace", "name slug")
       .lean();
 
     const userId = req.user?._id?.toString();

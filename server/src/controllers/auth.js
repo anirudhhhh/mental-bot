@@ -14,6 +14,7 @@ async function register(req, res) {
 
   try {
     const { email, password, displayName, whatBringsYou } = req.body;
+    const lowerEmail = email ? email.toLowerCase() : "";
 
     console.log(`[auth:register] start ${email || "unknown"}`);
 
@@ -22,13 +23,13 @@ async function register(req, res) {
     }
 
     // 🔥 lean for faster check
-    const existingUser = await User.findOne({ email }).lean();
+    const existingUser = await User.findOne({ email: lowerEmail }).lean();
     if (existingUser) {
       return res.status(400).json({ error: "Email already registered" });
     }
 
     const user = await User.create({
-      email,
+      email: lowerEmail,
       password,
       displayName: displayName || "Anonymous",
       whatBringsYou: whatBringsYou || "",
@@ -59,6 +60,7 @@ async function login(req, res) {
 
   try {
     const { email, password } = req.body;
+    const lowerEmail = email ? email.toLowerCase() : "";
 
     console.log(`[auth:login] start ${email || "unknown"}`);
 
@@ -67,7 +69,7 @@ async function login(req, res) {
     }
 
     // ⚠️ need full doc (no lean) because comparePassword is a method
-    const user = await User.findOne({ email }).select("+password");
+    const user = await User.findOne({ email: lowerEmail }).select("+password");
 
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({ error: "Invalid credentials" });

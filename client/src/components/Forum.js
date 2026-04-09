@@ -13,6 +13,7 @@ export default function Forum() {
   const [subspaces, setSubspaces] = useState([]);
   const [posts, setPosts] = useState([]);
   const [currentSubspace, setCurrentSubspace] = useState(null);
+  const [activeSubspaceData, setActiveSubspaceData] = useState(null);
   const [currentPost, setCurrentPost] = useState(null);
   const [comments, setComments] = useState([]);
   const [showCreatePost, setShowCreatePost] = useState(false);
@@ -134,6 +135,7 @@ export default function Forum() {
     try {
       setView("feed");
       setCurrentSubspace(null);
+      setActiveSubspaceData(null);
       setCurrentPost(null);
       setPosts([]);
       const res = await axios.get(
@@ -150,14 +152,26 @@ export default function Forum() {
     try {
       setView("subspace");
       setCurrentSubspace(slug);
+      setActiveSubspaceData(null);
       setCurrentPost(null);
       setPosts([]);
       const identifier = encodeURIComponent(slug);
-      const res = await axios.get(
-        `${API_URL}/forum/s/${identifier}/posts?sort=${sort}`,
-        authHeaders,
-      );
-      setPosts(res.data);
+      
+      const [postsRes, subspaceRes] = await Promise.all([
+        axios.get(
+          `${API_URL}/forum/s/${identifier}/posts?sort=${sort}`,
+          authHeaders,
+        ),
+        axios.get(
+          `${API_URL}/forum/s/${identifier}`,
+          authHeaders,
+        ).catch(() => ({ data: null }))
+      ]);
+      
+      setPosts(postsRes.data);
+      if (subspaceRes.data) {
+        setActiveSubspaceData(subspaceRes.data);
+      }
     } catch (err) {
       console.error("Failed to fetch posts:", err);
     }
@@ -359,10 +373,28 @@ export default function Forum() {
     return `${Math.floor(mins / 1440)}d ago`;
   };
 
+  const handlePostClick = (post) => {
+    const target =
+      post.subspace?.slug ||
+      post.subspace?.name ||
+      currentSubspace ||
+      subspaceSlug;
+    if (target && post._id) {
+      navigate(`/forum/s/${encodeURIComponent(target)}/${post._id}`);
+    }
+  };
+
   // Server sets isOwner: true for the authenticated author, even on anonymous posts.
   // Never compare author._id on the client — anonymous posts do not expose it.
   const isPostOwner = (post) => !!post?.isOwner;
   const isCommentOwner = (comment) => !!comment?.isOwner;
+
+  const isSubspaceCreator = (s) => {
+    if (!s || !user || !s.createdBy) return false;
+    const creatorId = typeof s.createdBy === 'object' ? String(s.createdBy._id) : String(s.createdBy);
+    const userId = String(user._id || user.id);
+    return creatorId === userId;
+  };
 
   const handleDeleteComment = async (commentId) => {
     if (!currentPost) return;
@@ -468,7 +500,7 @@ export default function Forum() {
                 fetchSubspacePosts(target, sortBy);
               }}
               onContextMenu={(e) =>
-                handleContextMenu(e, s.slug || s.name, true)
+                handleContextMenu(e, s.slug || s.name, isSubspaceCreator(s))
               }
             >
               <span className="subspace-prefix">#</span>
@@ -477,30 +509,32 @@ export default function Forum() {
                 <span className="member-count">
                   {formatCompactCount(s.postCount ?? 0)}
                 </span>
-                <button
-                  className="subspace-menu-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMenuOpen(
-                      menuOpen === (s.slug || s.name)
-                        ? null
-                        : s.slug || s.name,
-                    );
-                  }}
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
+                {isSubspaceCreator(s) && (
+                  <button
+                    className="subspace-menu-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuOpen(
+                        menuOpen === (s.slug || s.name)
+                          ? null
+                          : s.slug || s.name,
+                      );
+                    }}
                   >
-                    <circle cx="12" cy="12" r="1" />
-                    <circle cx="12" cy="5" r="1" />
-                    <circle cx="12" cy="19" r="1" />
-                  </svg>
-                </button>
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <circle cx="12" cy="12" r="1" />
+                      <circle cx="12" cy="5" r="1" />
+                      <circle cx="12" cy="19" r="1" />
+                    </svg>
+                  </button>
+                )}
               </div>
-              {menuOpen === (s.slug || s.name) && (
+              {menuOpen === (s.slug || s.name) && isSubspaceCreator(s) && (
                 <div
                   className="subspace-menu"
                   onClick={(e) => e.stopPropagation()}
@@ -684,12 +718,7 @@ export default function Forum() {
                 <div
                   key={post._id}
                   className="post-card"
-                  onClick={() => {
-                    const target = post.subspace?.slug || post.subspace?.name;
-                    if (target) {
-                      navigate(`/forum/s/${encodeURIComponent(target)}/${post._id}`);
-                    }
-                  }}
+                  onClick={() => handlePostClick(post)}
                 >
                   <div className="post-header">
                     <span
@@ -736,7 +765,13 @@ export default function Forum() {
                       {post.upvoteCount}
                     </button>
 
-                    <button className="action-btn comment-btn">
+                    <button
+                      className="action-btn comment-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePostClick(post);
+                      }}
+                    >
                       <svg
                         viewBox="0 0 24 24"
                         fill="none"
@@ -777,6 +812,20 @@ export default function Forum() {
           {/* SUBSPACE VIEW */}
           {view === "subspace" && (
             <>
+              {activeSubspaceData && activeSubspaceData.description && (
+                <div className="guidelines-banner subspace-info-banner">
+                  <div className="banner-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                  </div>
+                  <div className="banner-content">
+                    <h3>About s/{activeSubspaceData.name}</h3>
+                    <p>{activeSubspaceData.description}</p>
+                  </div>
+                </div>
+              )}
+
               <div className="subspace-header">
                 <button
                   className="new-post-btn"
@@ -801,12 +850,7 @@ export default function Forum() {
                 <div
                   key={post._id}
                   className="post-card"
-                  onClick={() => {
-                    const target = post.subspace?.slug || post.subspace?.name;
-                    if (target) {
-                      navigate(`/forum/s/${encodeURIComponent(target)}/${post._id}`);
-                    }
-                  }}
+                  onClick={() => handlePostClick(post)}
                 >
                   <div className="post-header">
                     <span className="post-meta">
@@ -840,7 +884,13 @@ export default function Forum() {
                       {post.upvoteCount}
                     </button>
 
-                    <button className="action-btn comment-btn">
+                    <button
+                      className="action-btn comment-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePostClick(post);
+                      }}
+                    >
                       <svg
                         viewBox="0 0 24 24"
                         fill="none"
