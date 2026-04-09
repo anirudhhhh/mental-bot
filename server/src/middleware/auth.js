@@ -15,13 +15,10 @@ async function protect(req, res, next) {
     }
 
     const decoded = jwt.verify(token, config.jwtSecret);
-    const user = await User.findById(decoded.id);
 
-    if (!user) {
-      return res.status(401).json({ error: "User not found" });
-    }
+    // 🔥 no DB call
+    req.user = { _id: decoded.id };
 
-    req.user = user;
     next();
   } catch (err) {
     return res.status(401).json({ error: "Invalid token" });

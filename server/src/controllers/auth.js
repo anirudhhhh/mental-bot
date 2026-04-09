@@ -8,8 +8,10 @@ function logAuthTiming(action, startTime, email) {
   );
 }
 
+// ================= REGISTER =================
 async function register(req, res) {
   const startTime = Date.now();
+
   try {
     const { email, password, displayName, whatBringsYou } = req.body;
 
@@ -19,7 +21,8 @@ async function register(req, res) {
       return res.status(400).json({ error: "Email and password required" });
     }
 
-    const existingUser = await User.findOne({ email });
+    // 🔥 lean for faster check
+    const existingUser = await User.findOne({ email }).lean();
     if (existingUser) {
       return res.status(400).json({ error: "Email already registered" });
     }
@@ -50,8 +53,10 @@ async function register(req, res) {
   }
 }
 
+// ================= LOGIN =================
 async function login(req, res) {
   const startTime = Date.now();
+
   try {
     const { email, password } = req.body;
 
@@ -61,14 +66,18 @@ async function login(req, res) {
       return res.status(400).json({ error: "Email and password required" });
     }
 
+    // ⚠️ need full doc (no lean) because comparePassword is a method
     const user = await User.findOne({ email }).select("+password");
 
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    user.lastLogin = new Date();
-    await user.save({ validateBeforeSave: false });
+    // 🔥 make this NON-BLOCKING (no await)
+    User.updateOne(
+      { _id: user._id },
+      { $set: { lastLogin: new Date() } },
+    ).catch(() => {});
 
     const token = signToken(user._id);
 
@@ -90,35 +99,50 @@ async function login(req, res) {
   }
 }
 
+// ================= PROFILE =================
 async function getProfile(req, res) {
-  res.json({
-    user: {
-      id: req.user._id,
-      email: req.user.email,
-      displayName: req.user.displayName,
-      preferences: req.user.preferences,
-      whatBringsYou: req.user.whatBringsYou,
-    },
-  });
+  try {
+    const user = await User.findById(req.user._id)
+      .select("_id email displayName preferences whatBringsYou")
+      .lean();
+
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch profile" });
+  }
 }
 
+// ================= UPDATE PREFERENCES =================
 async function updatePreferences(req, res) {
   try {
     const { preferredPersonality, theme } = req.body;
 
+    const update = {};
+
     if (preferredPersonality) {
-      req.user.preferences.preferredPersonality = preferredPersonality;
+      update["preferences.preferredPersonality"] = preferredPersonality;
     }
+
     if (theme) {
-      req.user.preferences.theme = theme;
+      update["preferences.theme"] = theme;
     }
 
-    await req.user.save();
+    // 🔥 direct update (no req.user.save)
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: update },
+      { new: true, select: "preferences" },
+    ).lean();
 
-    res.json({ preferences: req.user.preferences });
+    res.json({ preferences: user.preferences });
   } catch (err) {
     res.status(500).json({ error: "Update failed" });
   }
 }
 
-module.exports = { register, login, getProfile, updatePreferences };
+module.exports = {
+  register,
+  login,
+  getProfile,
+  updatePreferences,
+};
