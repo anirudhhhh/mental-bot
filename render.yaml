@@ -38,6 +38,25 @@ services:
     buildCommand: npm install && npm run build
     staticPublishPath: build
     autoDeploy: true
+    routes:
+      - type: rewrite
+        source: /login
+        destination: /index.html
+      - type: rewrite
+        source: /signup
+        destination: /index.html
+      - type: rewrite
+        source: /auth
+        destination: /index.html
+      - type: rewrite
+        source: /chat
+        destination: /index.html
+      - type: rewrite
+        source: /forum
+        destination: /index.html
+      - type: rewrite
+        source: /forum/*
+        destination: /index.html
     envVars:
       - key: REACT_APP_API_URL
         sync: false
