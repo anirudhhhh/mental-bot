@@ -33,7 +33,6 @@ export function AuthProvider({ children }) {
     } else {
       setLoading(false);
     }
-    // eslint-disable-next-line
   }, []);
 
   const login = async (email, password) => {
