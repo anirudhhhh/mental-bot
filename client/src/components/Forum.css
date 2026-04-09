@@ -280,6 +280,9 @@
   font-size: 14px;
   font-weight: 500;
   padding-right: 40px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .subspace-item.active .subspace-name {

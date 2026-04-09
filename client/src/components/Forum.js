@@ -504,7 +504,7 @@ export default function Forum() {
               }
             >
               <span className="subspace-prefix">#</span>
-              <span className="subspace-name">{s.name}</span>
+              <span className="subspace-name" title={s.name}>{s.name}</span>
               <div className="subspace-count-menu">
                 <span className="member-count">
                   {formatCompactCount(s.postCount ?? 0)}
