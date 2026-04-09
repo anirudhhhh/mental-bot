@@ -139,6 +139,7 @@ export default function Forum() {
       setView("feed");
       setCurrentSubspace(null);
       setCurrentPost(null);
+      setPosts([]); // ← add this
       const res = await axios.get(
         `${API_URL}/forum/feed?sort=${sort}`,
         authHeaders,
@@ -154,6 +155,7 @@ export default function Forum() {
       setView("subspace");
       setCurrentSubspace(slug);
       setCurrentPost(null);
+      setPosts([]);
       const identifier = encodeURIComponent(slug);
       const res = await axios.get(
         `${API_URL}/forum/s/${identifier}/posts?sort=${sort}`,
