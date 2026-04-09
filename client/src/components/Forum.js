@@ -1028,9 +1028,9 @@ export default function Forum() {
                     rows={3}
                   />
                   <div className="form-row">
-                    <label>
+                    <label className="forum-form-checkbox">
                       <input type="checkbox" name="anonymous" />
-                      Post anonymously
+                      <span>Post anonymously</span>
                     </label>
                     <button type="submit">Reply</button>
                   </div>
@@ -1166,9 +1166,9 @@ export default function Forum() {
                 <div className="modal-form-error">{postFormError}</div>
               )}
 
-              <label>
+              <label className="forum-form-checkbox">
                 <input type="checkbox" name="anonymous" />
-                Post anonymously
+                <span>Post anonymously</span>
               </label>
               <div className="modal-actions">
                 <button type="button" onClick={() => setShowCreatePost(false)}>
