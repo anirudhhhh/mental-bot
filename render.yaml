@@ -45,7 +45,7 @@ services:
     rootDir: client
     plan: free
     buildCommand: npm install && npm run build
-    startCommand: npx serve -s build -l 3000
+    startCommand: npx serve -s build -l $PORT
     autoDeploy: true
     envVars:
       - key: REACT_APP_API_URL
